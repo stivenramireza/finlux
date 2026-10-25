@@ -33,6 +33,9 @@ Use `pnpm` for every install/run/build task. Do not mix in `npm` or `yarn`
   does not exist). Runtime packages `@nestjs/*` resolve to the **12.x** line
   (`@nestjs/core` **12.2.0** at scaffold time).
 - **Database**: PostgreSQL **18.6**.
+- **ORM / persistence**: **[TypeORM](https://typeorm.io/)** in the NestJS
+  backend, targeting PostgreSQL 18.6. Schema changes are managed through
+  versioned migrations (no auto-`synchronize` in non-dev environments).
 - **Frontend**: [Next.js](https://nextjs.org/) **16.4.3** on Node.js 24.22.1.
 - **AI / agent layer**:
   - **LLM provider**: **Google** (Gemini models), accessed via the

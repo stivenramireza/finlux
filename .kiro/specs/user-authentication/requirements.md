@@ -4,6 +4,12 @@
 Provide user registration, login, session management, and per-user data
 isolation so that each user's financial data is private and secure.
 
+## Terminology
+- **User**: a login identity (the person authenticating). "Register/create an
+  account" here means creating a **User**, not a financial Account.
+- **Account** (financial) is defined in `data-model-and-persistence` and is out
+  of scope for this spec.
+
 ## Scope
 In scope:
 - Registration, login, logout, and authenticated sessions.

@@ -23,5 +23,18 @@ feature with Kiro, moving through three documents in order:
 - Keep the three documents in sync as the feature evolves.
 - Specs may reference other files via `#[[file:<relative_path>]]`.
 
-No specs exist yet. The first one will be created when we pick the first feature
-to build.
+## Current specs
+- `agentic-chat-layout` — static frontend layout of the agentic chat
+  (requirements, design, tasks; implemented).
+- `data-model-and-persistence` — core data model and persistence layer
+  (requirements). ORM: TypeORM.
+- `user-authentication` — registration, login, sessions, per-user isolation
+  (requirements).
+
+### Planned (backlog, not yet written)
+- `natural-language-transaction-capture`
+- `transaction-categorization`
+- `conversational-qa`
+- `spending-summaries-and-trends`
+- `proactive-insights-and-alerts`
+- `deployment-docker-railway`

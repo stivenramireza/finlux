@@ -5,6 +5,11 @@ Define Finlux's core data model and the backend persistence layer in PostgreSQL:
 users, accounts, transactions, and categories. This is foundational for every
 later feature (natural-language capture, categorization, Q&A, summaries).
 
+## Terminology
+- **User**: a login identity / person who uses Finlux. Scopes all financial data.
+- **Account**: a user-named financial account or wallet (e.g. "cash", "payroll"),
+  belonging to one User. Not a login account.
+
 ## Scope
 In scope:
 - Entities and relationships for users, accounts, transactions, categories.
