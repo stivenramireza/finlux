@@ -1,9 +1,22 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { DatabaseModule } from './database/database.module.js';
+import { UsersModule } from './users/users.module.js';
+import { AccountsModule } from './accounts/accounts.module.js';
+import { CategoriesModule } from './categories/categories.module.js';
+import { TransactionsModule } from './transactions/transactions.module.js';
 
 @Module({
-  imports: [],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    DatabaseModule,
+    UsersModule,
+    AccountsModule,
+    CategoriesModule,
+    TransactionsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -1,0 +1,54 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity.js';
+import { CreateUserDto } from './dto/create-user.dto.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
+
+/**
+ * Identity-anchor service. The `User` scopes all financial data, so its own
+ * lookups are by identity (id / email) rather than by an owning user.
+ */
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
+  ) {}
+
+  create(dto: CreateUserDto): Promise<User> {
+    const user = this.users.create({
+      email: dto.email,
+      defaultCurrency: dto.defaultCurrency,
+      displayName: dto.displayName ?? null,
+    });
+    return this.users.save(user);
+  }
+
+  findById(id: string): Promise<User | null> {
+    return this.users.findOne({ where: { id } });
+  }
+
+  async findByIdOrFail(id: string): Promise<User> {
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  findByEmail(email: string): Promise<User | null> {
+    return this.users.findOne({ where: { email } });
+  }
+
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    const user = await this.findByIdOrFail(id);
+    if (dto.displayName !== undefined) {
+      user.displayName = dto.displayName;
+    }
+    if (dto.defaultCurrency !== undefined) {
+      user.defaultCurrency = dto.defaultCurrency;
+    }
+    return this.users.save(user);
+  }
+}
