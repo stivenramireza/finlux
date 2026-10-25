@@ -29,8 +29,8 @@ export enum TransactionCurrency {
  * `numeric(19,4)` decimal (never a float) and exposed as a decimal string via
  * the numeric transformer.
  */
-@Entity({ name: 'transactions' })
-@Index('idx_transactions_user_id_date', ['userId', 'date'])
+@Entity({ name: 'transaction' })
+@Index('idx_transaction_user_id_date', ['userId', 'date'])
 export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;

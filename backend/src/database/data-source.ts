@@ -40,4 +40,5 @@ export const dataSourceOptions: DataSourceOptions = {
 
 /** DataSource consumed by the TypeORM CLI for migration commands. */
 const dataSource = new DataSource(dataSourceOptions);
+
 export default dataSource;

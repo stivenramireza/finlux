@@ -20,7 +20,7 @@ export class CreateSessionTable1730000002000 implements MigrationInterface {
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "pk_session" PRIMARY KEY ("id"),
         CONSTRAINT "fk_session_user" FOREIGN KEY ("user_id")
-          REFERENCES "users" ("id") ON DELETE CASCADE
+          REFERENCES "user" ("id") ON DELETE CASCADE
       )
     `);
     await queryRunner.query(

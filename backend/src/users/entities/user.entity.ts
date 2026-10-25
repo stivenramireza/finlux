@@ -12,11 +12,11 @@ import { Transaction } from '../../transactions/entities/transaction.entity.js';
 /**
  * A Finlux user: the identity that anchors and isolates all financial data.
  *
- * This spec owns the base `users` table (identity + ownership only).
+ * This spec owns the base `user` table (identity + ownership only).
  * Credential/session columns are added additively by the `user-authentication`
  * spec via its own migration on the same table.
  */
-@Entity({ name: 'users' })
+@Entity({ name: 'user' })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
