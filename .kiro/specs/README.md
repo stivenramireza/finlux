@@ -38,11 +38,25 @@ feature with Kiro, moving through three documents in order:
   decided: single-route toggle, in-memory + sessionStorage token, AuthProvider
   context, shared API client with status→message mapping and global 401
   handling). Tasks written; ready to implement.
+- `transaction-http-api` — authenticated REST endpoints (GET/POST/PUT/DELETE)
+  for the current user's transactions, layered on the existing user-scoped
+  `TransactionsService` (`data-model-and-persistence`) and `JwtAuthGuard` +
+  `@CurrentUser` (`user-authentication`). Requirements drafted (PM); design and
+  tasks pending the Tech Lead.
+- `conversational-agent-backend` — the backend brain of the chat: an
+  authenticated chat endpoint, a Mastra-orchestrated Google Gemini agent, and
+  user-scoped tools that read/write the caller's transactions **only** through
+  the existing `TransactionsService`. Covers natural-language capture (with
+  explicit confirmation), automatic categorization, and conversational Q&A over
+  the user's own data, with conversation/message persistence and guardrails that
+  enforce the product non-goals (no real-money movement, no regulated advice).
+  Requirements drafted (PM); design complete and tasks written (Tech Lead):
+  conversation sub-resource endpoints, own `conversation`/`message` TypeORM
+  tables, Mastra + Google (`@ai-sdk/google`) agent, per-user tool isolation via
+  `RequestContext`, and a confirmation-gated capture flow with no pending-state
+  table. Ready to implement. Frontend wiring is a separate future spec.
 
 ### Planned (backlog, not yet written)
-- `natural-language-transaction-capture`
-- `transaction-categorization`
-- `conversational-qa`
 - `spending-summaries-and-trends`
 - `proactive-insights-and-alerts`
 - `deployment-docker-railway`
