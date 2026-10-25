@@ -27,7 +27,7 @@ feature with Kiro, moving through three documents in order:
 - `agentic-chat-layout` — static frontend layout of the agentic chat
   (requirements, design, tasks; implemented).
 - `data-model-and-persistence` — core data model and persistence layer
-  (requirements). ORM: TypeORM.
+  (requirements, design, tasks; ready to implement). ORM: TypeORM.
 - `user-authentication` — registration, login, sessions, per-user isolation
   (requirements).
 
