@@ -27,6 +27,14 @@ export class User {
   @Column({ type: 'varchar', name: 'display_name', nullable: true })
   displayName: string | null;
 
+  /**
+   * bcrypt hash of the user's password (never plaintext). Added by the
+   * `user-authentication` spec. Mapped with `select: false` so it is never
+   * returned or serialized unless a query explicitly selects it.
+   */
+  @Column({ type: 'varchar', select: false })
+  password: string;
+
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
   createdAt: Date;
 

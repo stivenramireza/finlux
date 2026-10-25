@@ -20,6 +20,7 @@ export class UsersService {
     const user = this.users.create({
       email: dto.email,
       displayName: dto.displayName ?? null,
+      password: dto.password,
     });
     return this.users.save(user);
   }
@@ -38,6 +39,25 @@ export class UsersService {
 
   findByEmail(email: string): Promise<User | null> {
     return this.users.findOne({ where: { email } });
+  }
+
+  /**
+   * Loads a user by email WITH the `password` column explicitly selected
+   * (`password` is `select: false` on the entity). Used only by the auth login
+   * flow to verify credentials; callers must never return the hash.
+   */
+  findByEmailWithPassword(email: string): Promise<User | null> {
+    return this.users.findOne({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        password: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<User> {

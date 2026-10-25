@@ -3,7 +3,10 @@ import { config as loadEnv } from 'dotenv';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import { User } from '../users/entities/user.entity.js';
 import { Transaction } from '../transactions/entities/transaction.entity.js';
+import { Session } from '../session/entities/session.entity.js';
 import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSchema.js';
+import { AddUserPassword1730000001000 } from './migrations/1730000001000-AddUserPassword.js';
+import { CreateSessionTable1730000002000 } from './migrations/1730000002000-CreateSessionTable.js';
 
 // Load variables from `backend/.env` for the standalone TypeORM CLI, which runs
 // outside the Nest application (so ConfigModule is not available here).
@@ -26,8 +29,12 @@ export const dataSourceOptions: DataSourceOptions = {
   url: databaseUrl,
   synchronize: false,
   migrationsRun: false,
-  entities: [User, Transaction],
-  migrations: [InitialSchema1730000000000],
+  entities: [User, Transaction, Session],
+  migrations: [
+    InitialSchema1730000000000,
+    AddUserPassword1730000001000,
+    CreateSessionTable1730000002000,
+  ],
   migrationsTableName: 'migrations',
 };
 
