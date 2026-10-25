@@ -2,7 +2,7 @@
 
 ## Overview
 Define Finlux's core data model and the backend persistence layer in PostgreSQL.
-The model is intentionally minimal: just two tables, `users` and `transactions`.
+The model is intentionally minimal: just two tables, `user` and `transaction`.
 This is foundational for every later feature (natural-language capture,
 categorization, Q&A, summaries).
 

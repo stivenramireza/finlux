@@ -29,10 +29,11 @@ Runtime dependencies (pinned): `@nestjs/typeorm`, `typeorm`, `pg`,
 All entities use a `uuid` primary key (`gen_random_uuid()` / TypeORM
 `@PrimaryGeneratedColumn('uuid')`) and carry `createdAt` / `updatedAt`
 timestamps (`timestamptz`) via `@CreateDateColumn` / `@UpdateDateColumn`
-(Requirement 2.4). Table names are `snake_case` plural (`users`,
-`transactions`).
+(Requirement 2.4). Table names are `snake_case` singular (`user`,
+`transaction`), matching the singular `session` table from the
+`user-authentication` spec for a consistent naming convention across the schema.
 
-### User (`users`)
+### User (`user`)
 Anchors and isolates all financial data. Credentials/sessions are owned by the
 `user-authentication` spec; here the `User` is only an identity + ownership
 anchor.
@@ -47,13 +48,13 @@ anchor.
 
 Relations: one-to-many to `Transaction`.
 
-### Transaction (`transactions`)
+### Transaction (`transaction`)
 A single recorded income or expense.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | `uuid` PK | generated |
-| `userId` | `uuid` FK → `users.id`, **not null** | owner (Req 2.1) |
+| `userId` | `uuid` FK → `user.id`, **not null** | owner (Req 2.1) |
 | `amount` | `numeric(19,4)` | precise decimal (see Money representation) |
 | `type` | enum `income` \| `expense`, not null | closed enum (`transaction_type`) |
 | `currency` | enum `COP` \| `USD`, not null | closed enum (`transaction_currency`) |
@@ -87,7 +88,7 @@ Both `type` and `currency` are implemented as Postgres enum types
   assumed here.
 
 ## Relationships & integrity
-- `Transaction.userId` is a **NOT NULL** FK to `users` — every transaction
+- `Transaction.userId` is a **NOT NULL** FK to `user` — every transaction
   belongs to exactly one user (Req 2.1).
 - `onDelete` policy: `Transaction.user` → `ON DELETE CASCADE` (deleting a user
   removes their transactions).
@@ -127,9 +128,9 @@ defense-in-depth reinforcement of this application-level scoping, but it is
 - The **initial migration** creates both tables:
   - the `transaction_type` enum (`income`, `expense`);
   - the `transaction_currency` enum (`COP`, `USD`);
-  - table `users`;
-  - table `transactions` with the `fk_transactions_user` FK (`ON DELETE
-    CASCADE`) and the supporting index `transactions (user_id, date)`.
+  - table `user`;
+  - table `transaction` with the `fk_transaction_user` FK (`ON DELETE
+    CASCADE`) and the supporting index `transaction (user_id, date)`.
   Its `down` drops the two tables and then the two enums, rolling back cleanly.
   There is no seed migration (no categories to seed).
 - pnpm scripts (in `backend/package.json`), run via the TypeORM CLI against the
@@ -203,14 +204,14 @@ None. With categories removed from the model there is no seed migration.
 
 ## Resolved decisions
 These were previously open; they are now settled (approved by the user):
-- **Minimal two-table model.** The data model is just `users` and
-  `transactions`. The earlier `accounts` and `categories` entities were removed;
+- **Minimal two-table model.** The data model is just `user` and
+  `transaction`. The earlier `accounts` and `categories` entities were removed;
   a transaction no longer carries `accountId` or `categoryId`.
-- **`users` table ownership.** This spec (`data-model-and-persistence`) creates
-  the base `users` table (`id`, unique `email`, `displayName`, timestamps). The
+- **`user` table ownership.** This spec (`data-model-and-persistence`) creates
+  the base `user` table (`id`, unique `email`, `displayName`, timestamps). The
   `user-authentication` spec adds credential columns via its own later
   migration on the same table, composing additively on top of this base. There
-  is no duplicate `users` entity.
+  is no duplicate `user` entity.
 - **Currency is a closed enum.** `transaction_currency` is `COP` | `USD`. There
   is no `User.defaultCurrency`; each transaction records its own currency.
 - **`Transaction.date` type.** Modeled as SQL `date` (calendar day, no

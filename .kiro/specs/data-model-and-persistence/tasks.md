@@ -3,7 +3,7 @@
 Implementation plan. Backend-only, persistence layer in the NestJS app
 (`backend/`). TypeORM + PostgreSQL 18.6, ESM (imports use `.js`),
 `synchronize: false`, schema via versioned migrations. Minimal two-table model
-(`users`, `transactions`). No HTTP controllers and no UI in this spec.
+(`user`, `transaction`). No HTTP controllers and no UI in this spec.
 
 - [x] 1. Add and pin persistence dependencies
   - Add `@nestjs/typeorm`, `typeorm`, `pg`, and `@nestjs/config` to
@@ -42,7 +42,7 @@ Implementation plan. Backend-only, persistence layer in the NestJS app
 - [x] 6. Define the User entity
   - `users/entities/user.entity.ts`: `id` (uuid PK), unique `email`, nullable
     `displayName`, `createdAt`/`updatedAt`, and a one-to-many relation to
-    `Transaction`. This spec owns the base `users` table. (No
+    `Transaction`. This spec owns the base `user` table. (No
     `defaultCurrency`.)
   - _Requirements: 1.1, 2.4_
 
@@ -56,9 +56,9 @@ Implementation plan. Backend-only, persistence layer in the NestJS app
 
 - [x] 8. Author the initial schema migration
   - `database/migrations/1730000000000-InitialSchema.ts`: create the
-    `transaction_type` and `transaction_currency` enums, the `users` table, and
-    the `transactions` table with its `fk_transactions_user` FK (`ON DELETE
-    CASCADE`) and the supporting index `transactions (user_id, date)`. `down`
+    `transaction_type` and `transaction_currency` enums, the `user` table, and
+    the `transaction` table with its `fk_transaction_user` FK (`ON DELETE
+    CASCADE`) and the supporting index `transaction (user_id, date)`. `down`
     drops both tables and then both enums.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 4.1_
 
@@ -82,6 +82,6 @@ Implementation plan. Backend-only, persistence layer in the NestJS app
   - Run `pnpm --dir backend build`, `pnpm --dir backend lint`,
     `pnpm --dir backend format:check`, and `pnpm --dir backend test`; then apply
     `pnpm --dir backend migration:run` against PostgreSQL 18.6 (dev container)
-    and confirm `migration:revert` rolls back cleanly, leaving only `users` and
-    `transactions` (plus `migrations`).
+    and confirm `migration:revert` rolls back cleanly, leaving only `user` and
+    `transaction` (plus `migrations`).
   - _Requirements: 4.1, 4.2, 4.3, 5.1_
