@@ -20,7 +20,9 @@ needing accounting expertise. They expect a conversational, assistant-like
 experience rather than spreadsheets.
 
 ## Primary use cases (initial scope)
-- Connect / import accounts and transactions.
+- Record transactions in natural language (e.g. "I spent 20 on lunch today");
+  the agent extracts amount, date, type (income/expense), account, and category
+  and, after user confirmation, saves a structured transaction.
 - Automatic categorization of transactions.
 - Conversational Q&A over the user's finances
   (e.g. "How much did I spend on food last month?").
@@ -29,6 +31,9 @@ experience rather than spreadsheets.
 
 ## Non-goals (for now)
 - Executing real-money transfers or payments on behalf of the user.
+- Importing real bank data or connecting to financial institutions. Transactions
+  exist only as the user records them in natural language; the agent structures
+  and stores them, but never moves real money.
 - Professional financial, tax, or legal advice. Finlux informs; it does not
   provide regulated advice.
 - Multi-tenant enterprise / B2B features.
