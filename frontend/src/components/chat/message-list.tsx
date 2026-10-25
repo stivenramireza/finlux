@@ -14,7 +14,7 @@ export function MessageList() {
       aria-live="polite"
       aria-label="Conversation with Finlux"
       tabIndex={0}
-      className="focus-visible:ring-brand focus-visible:ring-inset flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-6 focus-visible:ring-2 focus-visible:outline-none sm:px-5"
+      className="focus-visible:ring-brand flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-6 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset sm:px-5"
     >
       <WelcomeState />
       {sampleMessages.map((message) => (

@@ -1,5 +1,5 @@
-import { ChatShell } from '@/components/chat/chat-shell';
+import { AuthGate } from '@/components/auth/auth-gate';
 
 export default function Home() {
-  return <ChatShell />;
+  return <AuthGate />;
 }

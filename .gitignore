@@ -1,9 +1,13 @@
 # Code editor
 .vscode/*
 
-# Environment variables
+# Environment variables (keep *.env.example committed)
 backend/.env
+backend/.env.*
+!backend/.env.example
 frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # Build
 backend/dist

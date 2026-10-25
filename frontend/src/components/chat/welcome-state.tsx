@@ -25,8 +25,8 @@ export function WelcomeState() {
         id="welcome-heading"
         className="text-foreground max-w-md text-2xl font-semibold tracking-tight text-balance sm:text-3xl"
       >
-        Your AI agent that brings{' '}
-        <span className="text-brand">clarity</span> to your personal finances.
+        Your AI agent that brings <span className="text-brand">clarity</span> to
+        your personal finances.
       </h2>
 
       <p className="text-muted-foreground max-w-sm text-sm leading-relaxed text-pretty sm:text-base">

@@ -27,10 +27,17 @@ feature with Kiro, moving through three documents in order:
 - `agentic-chat-layout` — static frontend layout of the agentic chat
   (requirements, design, tasks; implemented).
 - `data-model-and-persistence` — core data model and persistence layer
-  (requirements, design, tasks; ready to implement). ORM: TypeORM.
+  (requirements, design, tasks; implemented). ORM: TypeORM.
 - `user-authentication` — registration, login, sessions, per-user isolation
-  (requirements, design, tasks; ready to implement). Auth: email + bcrypt
-  password, 1h JWT access token, audit `session` table.
+  (requirements, design, tasks; implemented). Auth: email + bcrypt password,
+  1h JWT access token, audit `session` table.
+- `frontend-auth-integration` — wires the Next.js frontend to the auth backend:
+  gated home route (login/registration when logged out; chat + log-out when
+  logged in), token persistence, logout. Requirements drafted; design complete
+  (Designer's UI/UX follows the chat's visual language; Tech Lead architecture
+  decided: single-route toggle, in-memory + sessionStorage token, AuthProvider
+  context, shared API client with status→message mapping and global 401
+  handling). Tasks written; ready to implement.
 
 ### Planned (backlog, not yet written)
 - `natural-language-transaction-capture`
