@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -12,61 +8,39 @@ import {
   type FindOptionsWhere,
 } from 'typeorm';
 import { Transaction } from './entities/transaction.entity.js';
-import { AccountsService } from '../accounts/accounts.service.js';
-import { CategoriesService } from '../categories/categories.service.js';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionFilter } from './dto/transaction-filter.dto.js';
 
 /**
- * User-scoped, soft-delete-aware transaction access. Every method takes
- * `userId` and applies it in the WHERE clause. On create/update, the referenced
- * account and category are validated to belong to the same user (an account
- * must be owned; a category must be owned or a global seed).
+ * User-scoped transaction access. Every method takes `userId` and applies it in
+ * the WHERE clause, so one user can never read or mutate another user's rows.
  */
 @Injectable()
 export class TransactionsService {
   constructor(
     @InjectRepository(Transaction)
     private readonly transactions: Repository<Transaction>,
-    private readonly accounts: AccountsService,
-    private readonly categories: CategoriesService,
   ) {}
 
-  async create(
-    userId: string,
-    dto: CreateTransactionDto,
-  ): Promise<Transaction> {
-    await this.assertAccountOwned(userId, dto.accountId);
-    if (dto.categoryId) {
-      await this.assertCategoryVisible(userId, dto.categoryId);
-    }
-
+  create(userId: string, dto: CreateTransactionDto): Promise<Transaction> {
     const transaction = this.transactions.create({
       userId,
-      accountId: dto.accountId,
-      categoryId: dto.categoryId ?? null,
       amount: dto.amount,
-      currency: dto.currency,
       type: dto.type,
+      currency: dto.currency,
       date: dto.date,
       description: dto.description ?? null,
     });
     return this.transactions.save(transaction);
   }
 
-  /** Lists the user's (non-soft-deleted) transactions, newest day first. */
+  /** Lists the user's transactions, newest day first. */
   findAll(userId: string, filter?: TransactionFilter): Promise<Transaction[]> {
     const where: FindOptionsWhere<Transaction> = { userId };
 
-    if (filter?.accountId) {
-      where.accountId = filter.accountId;
-    }
-    if (filter?.categoryId) {
-      where.categoryId = filter.categoryId;
-    }
     if (filter?.type) {
-      where.type = filter.type as Transaction['type'];
+      where.type = filter.type;
     }
     if (filter?.dateFrom && filter?.dateTo) {
       where.date = Between(filter.dateFrom, filter.dateTo);
@@ -76,7 +50,6 @@ export class TransactionsService {
       where.date = LessThanOrEqual(filter.dateTo);
     }
 
-    // The repository excludes soft-deleted rows (deletedAt) by default.
     return this.transactions.find({
       where,
       order: { date: 'DESC', createdAt: 'DESC' },
@@ -107,24 +80,14 @@ export class TransactionsService {
   ): Promise<Transaction> {
     const transaction = await this.findOneOrFail(userId, transactionId);
 
-    if (dto.accountId !== undefined) {
-      await this.assertAccountOwned(userId, dto.accountId);
-      transaction.accountId = dto.accountId;
-    }
-    if (dto.categoryId !== undefined) {
-      if (dto.categoryId !== null) {
-        await this.assertCategoryVisible(userId, dto.categoryId);
-      }
-      transaction.categoryId = dto.categoryId;
-    }
     if (dto.amount !== undefined) {
       transaction.amount = dto.amount;
     }
-    if (dto.currency !== undefined) {
-      transaction.currency = dto.currency;
-    }
     if (dto.type !== undefined) {
       transaction.type = dto.type;
+    }
+    if (dto.currency !== undefined) {
+      transaction.currency = dto.currency;
     }
     if (dto.date !== undefined) {
       transaction.date = dto.date;
@@ -136,35 +99,10 @@ export class TransactionsService {
     return this.transactions.save(transaction);
   }
 
-  /** Soft-deletes (sets `deletedAt`) a transaction the caller owns. */
-  async softDelete(userId: string, transactionId: string): Promise<void> {
-    // Scope first so we never soft-delete another user's row.
+  /** Permanently deletes a transaction the caller owns. */
+  async remove(userId: string, transactionId: string): Promise<void> {
+    // Scope first so we never delete another user's row.
     await this.findOneOrFail(userId, transactionId);
-    await this.transactions.softDelete({ id: transactionId, userId });
-  }
-
-  private async assertAccountOwned(
-    userId: string,
-    accountId: string,
-  ): Promise<void> {
-    const account = await this.accounts.findOne(userId, accountId);
-    if (!account) {
-      throw new BadRequestException(
-        'Account does not exist or does not belong to the user',
-      );
-    }
-  }
-
-  private async assertCategoryVisible(
-    userId: string,
-    categoryId: string,
-  ): Promise<void> {
-    // A category is usable if it is the user's own or a global seed.
-    const category = await this.categories.findOne(userId, categoryId);
-    if (!category) {
-      throw new BadRequestException(
-        'Category does not exist or is not available to the user',
-      );
-    }
+    await this.transactions.delete({ id: transactionId, userId });
   }
 }

@@ -1,11 +1,13 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TransactionsService } from './transactions.service.js';
-import { Transaction, TransactionType } from './entities/transaction.entity.js';
-import { AccountsService } from '../accounts/accounts.service.js';
-import { CategoriesService } from '../categories/categories.service.js';
+import {
+  Transaction,
+  TransactionCurrency,
+  TransactionType,
+} from './entities/transaction.entity.js';
 
 const USER_A = 'user-a';
 const USER_B = 'user-b';
@@ -16,7 +18,7 @@ function makeRepo(rows: Partial<Transaction>[]) {
     save: vi.fn((data: Partial<Transaction>) =>
       Promise.resolve(data as Transaction),
     ),
-    softDelete: vi.fn(() => Promise.resolve({ affected: 1 })),
+    delete: vi.fn(() => Promise.resolve({ affected: 1 })),
     find: vi.fn((opts: { where: { userId: string } }) =>
       Promise.resolve(rows.filter((r) => r.userId === opts.where.userId)),
     ),
@@ -30,79 +32,47 @@ function makeRepo(rows: Partial<Transaction>[]) {
   };
 }
 
-describe('TransactionsService (isolation + ownership validation)', () => {
+describe('TransactionsService (per-user isolation)', () => {
   let service: TransactionsService;
   let repo: ReturnType<typeof makeRepo>;
-  let accounts: { findOne: ReturnType<typeof vi.fn> };
-  let categories: { findOne: ReturnType<typeof vi.fn> };
 
   const rows: Partial<Transaction>[] = [
-    { id: 'tx-a', userId: USER_A, accountId: 'acc-a', amount: '20.0000' },
-    { id: 'tx-b', userId: USER_B, accountId: 'acc-b', amount: '5.0000' },
+    { id: 'tx-a', userId: USER_A, amount: '20.0000' },
+    { id: 'tx-b', userId: USER_B, amount: '5.0000' },
   ];
 
   beforeEach(async () => {
     repo = makeRepo(rows);
-    // Account belongs to USER_A only; category 'cat-a' visible to USER_A only.
-    accounts = {
-      findOne: vi.fn((userId: string, accountId: string) =>
-        Promise.resolve(
-          userId === USER_A && accountId === 'acc-a'
-            ? { id: 'acc-a', userId: USER_A }
-            : null,
-        ),
-      ),
-    };
-    categories = {
-      findOne: vi.fn((userId: string, categoryId: string) =>
-        Promise.resolve(
-          userId === USER_A && categoryId === 'cat-a'
-            ? { id: 'cat-a', userId: USER_A }
-            : null,
-        ),
-      ),
-    };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         TransactionsService,
         { provide: getRepositoryToken(Transaction), useValue: repo },
-        { provide: AccountsService, useValue: accounts },
-        { provide: CategoriesService, useValue: categories },
       ],
     }).compile();
     service = moduleRef.get(TransactionsService);
   });
 
   const baseCreate = {
-    accountId: 'acc-a',
     amount: '20.0000',
-    currency: 'COP',
+    currency: TransactionCurrency.COP,
     type: TransactionType.EXPENSE,
     date: '2024-01-15',
   };
 
-  it('create persists when the account belongs to the user', async () => {
+  it('create persists a user-scoped transaction', async () => {
     await expect(service.create(USER_A, baseCreate)).resolves.toMatchObject({
       userId: USER_A,
-      accountId: 'acc-a',
       amount: '20.0000',
+      currency: TransactionCurrency.COP,
     });
     expect(repo.save).toHaveBeenCalledOnce();
   });
 
-  it('create rejects an account owned by another user', async () => {
-    await expect(service.create(USER_B, baseCreate)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    expect(repo.save).not.toHaveBeenCalled();
-  });
-
-  it('create rejects a category not visible to the user', async () => {
-    await expect(
-      service.create(USER_A, { ...baseCreate, categoryId: 'cat-b' }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(repo.save).not.toHaveBeenCalled();
+  it('findAll only returns the calling user transactions', async () => {
+    await expect(service.findAll(USER_A)).resolves.toEqual([
+      expect.objectContaining({ id: 'tx-a', userId: USER_A }),
+    ]);
   });
 
   it('findOne does not return another user transaction', async () => {
@@ -116,18 +86,44 @@ describe('TransactionsService (isolation + ownership validation)', () => {
     expect(repo.save).not.toHaveBeenCalled();
   });
 
-  it('softDelete refuses another user transaction and never calls the repo', async () => {
-    await expect(service.softDelete(USER_A, 'tx-b')).rejects.toBeInstanceOf(
+  it('remove refuses another user transaction and never calls the repo', async () => {
+    await expect(service.remove(USER_A, 'tx-b')).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    expect(repo.softDelete).not.toHaveBeenCalled();
+    expect(repo.delete).not.toHaveBeenCalled();
   });
 
-  it('softDelete scopes the delete by userId for an owned transaction', async () => {
-    await service.softDelete(USER_A, 'tx-a');
-    expect(repo.softDelete).toHaveBeenCalledWith({
+  it('remove scopes the delete by userId for an owned transaction', async () => {
+    await service.remove(USER_A, 'tx-a');
+    expect(repo.delete).toHaveBeenCalledWith({
       id: 'tx-a',
       userId: USER_A,
     });
+  });
+});
+
+describe('TransactionCurrency (closed set)', () => {
+  it('only accepts COP and USD', () => {
+    expect(Object.values(TransactionCurrency)).toEqual(['COP', 'USD']);
+  });
+
+  it('persists the currency chosen on create', async () => {
+    const repo = makeRepo([]);
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      providers: [
+        TransactionsService,
+        { provide: getRepositoryToken(Transaction), useValue: repo },
+      ],
+    }).compile();
+    const service = moduleRef.get(TransactionsService);
+
+    await expect(
+      service.create(USER_A, {
+        amount: '10.0000',
+        currency: TransactionCurrency.USD,
+        type: TransactionType.INCOME,
+        date: '2024-02-01',
+      }),
+    ).resolves.toMatchObject({ currency: TransactionCurrency.USD });
   });
 });

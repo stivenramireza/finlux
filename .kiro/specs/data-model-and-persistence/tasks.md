@@ -2,8 +2,8 @@
 
 Implementation plan. Backend-only, persistence layer in the NestJS app
 (`backend/`). TypeORM + PostgreSQL 18.6, ESM (imports use `.js`),
-`synchronize: false`, schema via versioned migrations. No HTTP controllers and
-no UI in this spec.
+`synchronize: false`, schema via versioned migrations. Minimal two-table model
+(`users`, `transactions`). No HTTP controllers and no UI in this spec.
 
 - [x] 1. Add and pin persistence dependencies
   - Add `@nestjs/typeorm`, `typeorm`, `pg`, and `@nestjs/config` to
@@ -20,84 +20,68 @@ no UI in this spec.
 - [x] 3. Create the DatabaseModule
   - `database/database.module.ts`: `TypeOrmModule.forRootAsync` with
     `ConfigModule`/`ConfigService`, building options from `DATABASE_URL`,
-    `synchronize: false`, `migrationsRun: false`, and entity/migration globs.
-    Import it once in `app.module.ts`.
+    `synchronize: false`, `migrationsRun: false`, and the explicit `User` /
+    `Transaction` entity and `InitialSchema` migration lists. Imported once in
+    `app.module.ts`.
   - _Requirements: 4.1, 4.2, 4.3, 5.2_
 
 - [x] 4. Add the TypeORM CLI DataSource and migration scripts
   - `database/data-source.ts`: standalone `DataSource` for the TypeORM CLI,
-    reading `DATABASE_URL`, `synchronize: false`, migrations directory set.
-  - Add pnpm scripts to `backend/package.json`: `migration:generate`,
+    reading `DATABASE_URL`, `synchronize: false`, with `User` / `Transaction`
+    entities and the `InitialSchema` migration.
+  - pnpm scripts in `backend/package.json`: `migration:generate`,
     `migration:run`, `migration:revert`, `migration:show` (ESM-aware invocation).
   - _Requirements: 4.1, 4.2_
 
 - [x] 5. Implement the numeric money transformer
   - `database/column-numeric.transformer.ts`: a `ColumnNumericTransformer`
-    mapping `numeric(19,4)` to a decimal-safe representation and back (never
+    mapping `numeric(19,4)` to a decimal-safe string and back (never
     `number`/float), with unit coverage for round-trip precision.
   - _Requirements: 2.3_
 
 - [x] 6. Define the User entity
-  - `users/entities/user.entity.ts`: `id` (uuid PK), unique `email`,
-    nullable `displayName`, `defaultCurrency` (`char(3)`, ISO 4217),
-    `createdAt`/`updatedAt`. This spec owns the base `users` table.
+  - `users/entities/user.entity.ts`: `id` (uuid PK), unique `email`, nullable
+    `displayName`, `createdAt`/`updatedAt`, and a one-to-many relation to
+    `Transaction`. This spec owns the base `users` table. (No
+    `defaultCurrency`.)
   - _Requirements: 1.1, 2.4_
 
-- [x] 7. Define the Account entity
-  - `accounts/entities/account.entity.ts`: `id`, NOT NULL `userId` FK → User,
-    `name`, optional `type`/`currency`, timestamps; unique `(userId, name)`.
-  - _Requirements: 1.2, 2.1, 2.2, 2.4_
+- [x] 7. Define the Transaction entity
+  - `transactions/entities/transaction.entity.ts`: `id`, NOT NULL `userId` FK →
+    User (`ON DELETE CASCADE`), `amount` (`numeric(19,4)` via the transformer),
+    `type` (closed `income`|`expense` enum), `currency` (closed `COP`|`USD`
+    enum), `date` (calendar day), nullable `description`, timestamps. No
+    `accountId`, no `categoryId`, no soft delete.
+  - _Requirements: 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4_
 
-- [x] 8. Define the Category entity
-  - `categories/entities/category.entity.ts`: `id`, **nullable** `userId` FK
-    (null = system seed, non-null = user-owned), `name`, optional `kind`/`icon`,
-    timestamps. Uniqueness handled by partial unique indexes in the migration.
-  - _Requirements: 1.4, 2.4_
-
-- [x] 9. Define the Transaction entity
-  - `transactions/entities/transaction.entity.ts`: `id`, NOT NULL `userId` and
-    `accountId` FKs, nullable `categoryId` FK, `amount` (`numeric(19,4)` via the
-    transformer), `currency`, `type` (closed `income`|`expense` enum), `date`
-    (calendar day), nullable `description`, timestamps, and `deletedAt`
-    (`@DeleteDateColumn`, soft delete).
-  - _Requirements: 1.3, 2.2, 2.3, 2.4_
-
-- [x] 10. Author the initial schema migration
-  - `database/migrations/<timestamp>-InitialSchema.ts`: create `users`,
-    `accounts`, `categories`, `transactions`; the `transaction_type` enum; FKs
-    with onDelete policies (account/transaction → user CASCADE, transaction →
-    account RESTRICT, transaction → category SET NULL, category → user CASCADE);
-    unique index `accounts (user_id, name)`; partial unique indexes on
-    `categories` for global vs user-owned names; supporting indexes on
-    `transactions (user_id, date)`, `(user_id, account_id)`,
-    `(user_id, category_id)`, and `accounts (user_id)`.
+- [x] 8. Author the initial schema migration
+  - `database/migrations/1730000000000-InitialSchema.ts`: create the
+    `transaction_type` and `transaction_currency` enums, the `users` table, and
+    the `transactions` table with its `fk_transactions_user` FK (`ON DELETE
+    CASCADE`) and the supporting index `transactions (user_id, date)`. `down`
+    drops both tables and then both enums.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 4.1_
 
-- [x] 11. Author the idempotent seed-categories migration
-  - A migration inserting the global seed categories (Food, Transport, Housing,
-    Utilities, Entertainment, Health, Income, Other) with `userId = NULL` using
-    `INSERT ... ON CONFLICT DO NOTHING`, so repeated runs never duplicate seeds
-    or touch user-owned rows.
-  - _Requirements: 1.4, 4.1_
+- [x] 9. Implement user-scoped feature services/repositories
+  - `UsersService` (identity lookups: `create`, `findById`, `findByEmail`,
+    `update`) and `TransactionsService` (`create`, `findAll` with optional
+    `type`/date filters, `findOne`, `update`, `remove` — physical delete). Every
+    transaction method takes `userId` and applies it in the `WHERE`; no unscoped
+    find-by-id. Register entities with `TypeOrmModule.forFeature` in each
+    feature module.
+  - _Requirements: 2.1, 3.1, 3.2_
 
-- [x] 12. Implement user-scoped feature services/repositories
-  - `UsersService` (identity lookups), `AccountsService`, `CategoriesService`
-    (reads return user rows ∪ global seeds; writes only the caller's rows),
-    `TransactionsService` (soft-delete aware, validates account/category belong
-    to the same user). Every financial-data method takes `userId` and applies it
-    in the `WHERE`; no unscoped find-by-id. Register entities with
-    `TypeOrmModule.forFeature` in each feature module.
-  - _Requirements: 2.1, 2.2, 3.1, 3.2_
+- [x] 10. Write unit tests (Vitest)
+  - Cover per-user isolation (a user cannot read/mutate another user's
+    transactions via `findOne`/`findAll`/`update`/`remove`), that `currency` is
+    the closed `COP`|`USD` set, and money round-trip through the numeric
+    transformer without float drift.
+  - _Requirements: 1.4, 2.3, 3.1, 3.2_
 
-- [x] 13. Write unit tests (Vitest)
-  - Cover per-user isolation (a user cannot read/mutate another user's accounts,
-    transactions, or categories via `findOne`/`update`/`softDelete`), the
-    global-vs-user category read behavior, and money round-trip through the
-    numeric transformer without float drift.
-  - _Requirements: 2.3, 3.1, 3.2_
-
-- [x] 14. Verify build, lint, and migrations
-  - Run `pnpm --dir backend build`, `pnpm --dir backend lint`, and
-    `pnpm --dir backend test`; then apply `pnpm --dir backend migration:run`
-    against PostgreSQL 18.6 and confirm `migration:revert` rolls back cleanly.
+- [x] 11. Verify build, lint, and migrations
+  - Run `pnpm --dir backend build`, `pnpm --dir backend lint`,
+    `pnpm --dir backend format:check`, and `pnpm --dir backend test`; then apply
+    `pnpm --dir backend migration:run` against PostgreSQL 18.6 (dev container)
+    and confirm `migration:revert` rolls back cleanly, leaving only `users` and
+    `transactions` (plus `migrations`).
   - _Requirements: 4.1, 4.2, 4.3, 5.1_

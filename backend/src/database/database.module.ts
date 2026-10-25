@@ -2,11 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/entities/user.entity.js';
-import { Account } from '../accounts/entities/account.entity.js';
-import { Category } from '../categories/entities/category.entity.js';
 import { Transaction } from '../transactions/entities/transaction.entity.js';
 import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSchema.js';
-import { SeedCategories1730000000001 } from './migrations/1730000000001-SeedCategories.js';
 
 /**
  * Wires TypeORM into Nest. Connection config is read from the environment via
@@ -32,8 +29,8 @@ import { SeedCategories1730000000001 } from './migrations/1730000000001-SeedCate
           synchronize: false,
           migrationsRun: false,
           autoLoadEntities: false,
-          entities: [User, Account, Category, Transaction],
-          migrations: [InitialSchema1730000000000, SeedCategories1730000000001],
+          entities: [User, Transaction],
+          migrations: [InitialSchema1730000000000],
           migrationsTableName: 'migrations',
         };
       },

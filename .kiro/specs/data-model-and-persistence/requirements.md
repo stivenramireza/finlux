@@ -1,24 +1,26 @@
 # Requirements — Data Model and Persistence
 
 ## Overview
-Define Finlux's core data model and the backend persistence layer in PostgreSQL:
-users, accounts, transactions, and categories. This is foundational for every
-later feature (natural-language capture, categorization, Q&A, summaries).
+Define Finlux's core data model and the backend persistence layer in PostgreSQL.
+The model is intentionally minimal: just two tables, `users` and `transactions`.
+This is foundational for every later feature (natural-language capture,
+categorization, Q&A, summaries).
 
 ## Terminology
 - **User**: a login identity / person who uses Finlux. Scopes all financial data.
-- **Account**: a user-named financial account or wallet (e.g. "cash", "payroll"),
-  belonging to one User. Not a login account.
+- **Transaction**: a single recorded income or expense belonging to one User.
 
 ## Scope
 In scope:
-- Entities and relationships for users, accounts, transactions, categories.
+- Entities and relationships for users and transactions.
 - Persistence layer in the NestJS backend (schema, migrations, repositories).
 - Data integrity, validation, and per-user isolation at the data layer.
 
 Out of scope:
 - Authentication/session logic (see `user-authentication`).
 - Natural-language parsing (see `natural-language-transaction-capture`).
+- Accounts, categories, and multi-currency conversion (not modeled; may be
+  revisited in a future spec).
 - Any UI.
 
 ## Requirements
@@ -30,26 +32,23 @@ data is stored consistently and can be reasoned over.
 Acceptance criteria (EARS):
 1. THE SYSTEM SHALL persist a `User` entity uniquely identified and used to scope
    all financial data.
-2. THE SYSTEM SHALL persist an `Account` entity (user-named, e.g. "cash",
-   "payroll"), each belonging to exactly one user.
-3. THE SYSTEM SHALL persist a `Transaction` entity with at least: amount,
-   currency, type (income/expense), date, description, an owning user, an
-   associated account, and an optional category.
-4. THE SYSTEM SHALL persist a `Category` entity used to classify transactions.
+2. THE SYSTEM SHALL persist a `Transaction` entity with at least: amount,
+   currency, type (income/expense), date, description, and an owning user.
+3. THE SYSTEM SHALL represent `type` as a closed enum of `income` | `expense`.
+4. THE SYSTEM SHALL represent `currency` as a closed enum of `COP` | `USD`.
 
 ### Requirement 2 — Relationships and integrity
 Acceptance criteria (EARS):
-1. THE SYSTEM SHALL enforce that every account and transaction belongs to a user.
-2. THE SYSTEM SHALL enforce referential integrity between transactions and their
-   account and category.
+1. THE SYSTEM SHALL enforce that every transaction belongs to a user.
+2. THE SYSTEM SHALL enforce referential integrity between a transaction and its
+   owning user (FK with `ON DELETE CASCADE`).
 3. WHEN a monetary amount is stored, THE SYSTEM SHALL use a precise decimal
    representation (no floating-point rounding of money).
 4. THE SYSTEM SHALL record creation and update timestamps for auditable records.
 
 ### Requirement 3 — Per-user isolation
 Acceptance criteria (EARS):
-1. THE SYSTEM SHALL scope all queries for accounts, transactions, and categories
-   to the owning user.
+1. THE SYSTEM SHALL scope all queries for transactions to the owning user.
 2. THE SYSTEM SHALL NOT allow data of one user to be returned in the context of
    another user.
 

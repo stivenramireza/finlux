@@ -19,7 +19,6 @@ export class UsersService {
   create(dto: CreateUserDto): Promise<User> {
     const user = this.users.create({
       email: dto.email,
-      defaultCurrency: dto.defaultCurrency,
       displayName: dto.displayName ?? null,
     });
     return this.users.save(user);
@@ -45,9 +44,6 @@ export class UsersService {
     const user = await this.findByIdOrFail(id);
     if (dto.displayName !== undefined) {
       user.displayName = dto.displayName;
-    }
-    if (dto.defaultCurrency !== undefined) {
-      user.defaultCurrency = dto.defaultCurrency;
     }
     return this.users.save(user);
   }
