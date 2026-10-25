@@ -29,7 +29,8 @@ feature with Kiro, moving through three documents in order:
 - `data-model-and-persistence` — core data model and persistence layer
   (requirements, design, tasks; ready to implement). ORM: TypeORM.
 - `user-authentication` — registration, login, sessions, per-user isolation
-  (requirements).
+  (requirements, design, tasks; ready to implement). Auth: email + bcrypt
+  password, 1h JWT access token, audit `session` table.
 
 ### Planned (backlog, not yet written)
 - `natural-language-transaction-capture`
