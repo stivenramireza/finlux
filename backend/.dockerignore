@@ -1,0 +1,28 @@
+# Dependencies & build output (reinstalled/rebuilt inside the image)
+node_modules
+dist
+*.tsbuildinfo
+
+# Secrets & local env — never copy into the image. Keys are documented in
+# .env.example and injected at runtime via Railway's environment.
+.env
+.env.*
+!.env.example
+
+# VCS & tooling
+.git
+.gitignore
+.gitattributes
+Dockerfile
+.dockerignore
+
+# Tests & coverage
+test
+coverage
+
+# Editor/OS cruft
+.vscode
+.DS_Store
+
+# Docs
+README.md

@@ -1,0 +1,25 @@
+# Dependencies & build output (reinstalled/rebuilt inside the image)
+node_modules
+.next
+build
+
+# Secrets & local env — never copy into the image. Keys are documented in
+# .env.example. NEXT_PUBLIC_* values are passed as build args; runtime env is
+# injected via Railway's environment.
+.env
+.env.*
+!.env.example
+
+# VCS & tooling
+.git
+.gitignore
+Dockerfile
+.dockerignore
+
+# Editor/OS cruft
+.vscode
+.DS_Store
+
+# Docs & agent notes
+README.md
+AGENTS.md
