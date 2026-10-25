@@ -1,0 +1,14 @@
+# Code editor
+.vscode/*
+
+# Environment variables
+backend/.env
+frontend/.env
+
+# Build
+backend/dist
+frontend/build
+
+# Node
+backend/node_modules
+frontend/node_modules

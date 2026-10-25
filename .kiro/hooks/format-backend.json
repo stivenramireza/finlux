@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Format backend (ESLint + Prettier)",
+      "trigger": "PostFileSave",
+      "description": "After saving a TypeScript file in the backend, auto-format with Prettier and auto-fix with ESLint.",
+      "matcher": "^backend/.*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm use 24.22.1 >/dev/null 2>&1; cd \"$(git rev-parse --show-toplevel 2>/dev/null || echo .)/backend\" && pnpm exec prettier --write \"src/**/*.ts\" \"test/**/*.ts\" >/dev/null 2>&1; pnpm exec eslint \"{src,test}/**/*.ts\" --fix >/dev/null 2>&1; exit 0",
+        "timeout": 120
+      }
+    }
+  ]
+}

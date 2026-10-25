@@ -1,0 +1,54 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Neutral surface used for subtle panels (header/input bars, user bubble). */
+  --surface: #f7f8f7;
+  /* Muted foreground for secondary/supporting copy (meets AA on --background). */
+  --muted-foreground: #5c5f5c;
+
+  /* Green brand accent — single source of truth. */
+  --brand: #16a34a; /* green-600 — primary accent / borders (light) */
+  --brand-foreground: #052e16;
+  /* Low-alpha brand tint for soft fills (agent bubble, welcome mark). */
+  --brand-tint: color-mix(in oklab, var(--brand) 8%, var(--background));
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-tint: var(--brand-tint);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+
+    --surface: #161616;
+    --muted-foreground: #a1a3a1;
+
+    --brand: #22c55e; /* green-500 — brighter border for dark bg */
+    --brand-foreground: #dcfce7;
+    --brand-tint: color-mix(in oklab, var(--brand) 14%, var(--background));
+  }
+}
+
+html {
+  /* Make native form controls / scrollbars follow the active scheme. */
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
