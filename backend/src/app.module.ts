@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { SessionModule } from './session/session.module.js';
+import { ChatModule } from './chat/chat.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SessionModule } from './session/session.module.js';
     TransactionsModule,
     AuthModule,
     SessionModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

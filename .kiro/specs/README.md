@@ -44,17 +44,38 @@ feature with Kiro, moving through three documents in order:
   `@CurrentUser` (`user-authentication`). Requirements drafted (PM); design and
   tasks pending the Tech Lead.
 - `conversational-agent-backend` — the backend brain of the chat: an
-  authenticated chat endpoint, a Mastra-orchestrated Google Gemini agent, and
-  user-scoped tools that read/write the caller's transactions **only** through
-  the existing `TransactionsService`. Covers natural-language capture (with
+  authenticated chat endpoint and a Mastra-orchestrated Google Gemini agent. The
+  agent's transaction tools are exposed by an **in-process MCP server** whose
+  handlers are **HTTP clients of the transaction API** (`transaction-http-api`),
+  forwarding the caller's JWT as `Authorization: Bearer` — the agent has **no
+  direct database access** to transactions. Covers natural-language capture (with
   explicit confirmation), automatic categorization, and conversational Q&A over
-  the user's own data, with conversation/message persistence and guardrails that
-  enforce the product non-goals (no real-money movement, no regulated advice).
-  Requirements drafted (PM); design complete and tasks written (Tech Lead):
-  conversation sub-resource endpoints, own `conversation`/`message` TypeORM
-  tables, Mastra + Google (`@ai-sdk/google`) agent, per-user tool isolation via
-  `RequestContext`, and a confirmation-gated capture flow with no pending-state
-  table. Ready to implement. Frontend wiring is a separate future spec.
+  the user's own data, with conversation/message persistence (its own TypeORM
+  tables) and guardrails that enforce the product non-goals (no real-money
+  movement, no regulated advice). Requirements drafted (PM); design complete
+  and tasks written (Tech Lead), incorporating the user's architecture decision
+  (1a end-to-end JWT propagation, 2a in-process MCP) and the Layer 1 + Layer 3
+  token-handling mitigations. **Implemented (Backend Engineer) and verified
+  (Tech Lead): lint/format/build, 74 unit + 27 e2e green, migration round-trip
+  confirmed.** Frontend wiring is a separate future spec.
+- `frontend-chat-integration` — wires the Next.js chat UI (`agentic-chat-layout`)
+  to the **implemented** `conversational-agent-backend` chat endpoints (verified
+  in `backend/src/chat/`), consumed through the authenticated session + shared
+  API client from `frontend-auth-integration`. Makes `MessageInput` functional, renders the live
+  user/agent conversation (replacing the static samples), starts a conversation
+  on the first message (`POST /conversations`) and continues it
+  (`POST /conversations/:id/messages`), handles in-flight state and no duplicate
+  turns, forwards the bearer token with global `401` handling, and shows safe
+  non-disclosing errors (`400`/`404`/`502`/`503`/network). Streaming,
+  conversation-history browsing, and rich transaction rendering are out of scope.
+  Requirements drafted (PM); design complete (Tech Lead: shared `AuthApiClient`
+  exposed via the auth context and reused through a thin typed `ChatApi` over
+  `authedFetch`; dedicated `ChatProvider` for session state; optimistic user
+  bubble reconciled from the server response; one fresh conversation per session;
+  agent "typing" pending bubble). Tasks written (Tech Lead); ready to implement
+  (Frontend Engineer). Note: fully satisfying the test requirement adds a
+  frontend test runner (Vitest + RTL), flagged for the PM; the hard gate is
+  `lint` + `build`.
 
 ### Planned (backlog, not yet written)
 - `spending-summaries-and-trends`

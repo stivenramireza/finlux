@@ -4,9 +4,12 @@ import { DataSource, type DataSourceOptions } from 'typeorm';
 import { User } from '../users/entities/user.entity.js';
 import { Transaction } from '../transactions/entities/transaction.entity.js';
 import { Session } from '../session/entities/session.entity.js';
+import { Conversation } from '../chat/conversation.entity.js';
+import { Message } from '../chat/message.entity.js';
 import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSchema.js';
 import { AddUserPassword1730000001000 } from './migrations/1730000001000-AddUserPassword.js';
 import { CreateSessionTable1730000002000 } from './migrations/1730000002000-CreateSessionTable.js';
+import { CreateConversationAndMessageTables1730000003000 } from './migrations/1730000003000-CreateConversationAndMessageTables.js';
 
 // Load variables from `backend/.env` for the standalone TypeORM CLI, which runs
 // outside the Nest application (so ConfigModule is not available here).
@@ -29,11 +32,12 @@ export const dataSourceOptions: DataSourceOptions = {
   url: databaseUrl,
   synchronize: false,
   migrationsRun: false,
-  entities: [User, Transaction, Session],
+  entities: [User, Transaction, Session, Conversation, Message],
   migrations: [
     InitialSchema1730000000000,
     AddUserPassword1730000001000,
     CreateSessionTable1730000002000,
+    CreateConversationAndMessageTables1730000003000,
   ],
   migrationsTableName: 'migrations',
 };
