@@ -27,7 +27,9 @@ export function createUpdateTransactionTool(client: TransactionApiClient) {
       "Replace one of the caller's own transactions by id. This is a full replace: provide ALL fields (amount, type, currency, date, and description) with their final values. An omitted description clears it.",
     inputSchema: z.object({
       id: z.string().uuid(),
-      amount: amountSchema,
+      amount: amountSchema.describe(
+        'The amount as a plain decimal string, e.g. "20.00" — never an object, number, or currency symbol.',
+      ),
       type: z.enum(TransactionType),
       currency: z.enum(TransactionCurrency),
       date: calendarDaySchema,

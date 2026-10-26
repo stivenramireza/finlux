@@ -13,7 +13,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
 `package.json` scripts: `pnpm --dir frontend lint`, `pnpm --dir frontend build`,
 `pnpm --dir frontend format:check`.
 
-- [ ] 1. Define the chat types (mirror the backend contract)
+- [x] 1. Define the chat types (mirror the backend contract)
   - Create `src/lib/chat/types.ts`: `MessageRole = 'user' | 'agent'`,
     `ChatMessageDto { id, conversationId, role, content, createdAt }`, and
     `Conversation { id, title: string | null, createdAt, updatedAt }` — matching
@@ -21,7 +21,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     presentational `ChatMessage { id, role, text }` in `components/chat/messages.ts`.
   - _Requirements: 2.1, 2.4 · Design: Decision 3_
 
-- [ ] 2. Expose the shared API client via the auth context
+- [x] 2. Expose the shared API client via the auth context
   - In `src/lib/auth/auth-provider.tsx`, add **`getApiClient(): AuthApiClient`**
     to `AuthContextValue`, returning the same lazily-created instance from the
     existing `getApi()` ref (stable `useCallback`). Additive only — do not change
@@ -29,7 +29,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     `authedFetch` stay unchanged.
   - _Requirements: 4.1, 4.3 · Design: Decision 1 ("reuse, don't duplicate")_
 
-- [ ] 3. Implement the typed `ChatApi` over `authedFetch`
+- [x] 3. Implement the typed `ChatApi` over `authedFetch`
   - Create `src/lib/chat/chat-api.ts`: a `ChatApi` constructed from an
     `AuthApiClient`, with `startConversation(message, title?)`,
     `sendMessage(conversationId, message)`, and (defined, not UI-wired)
@@ -43,7 +43,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     defensively. Never log token, bodies, or agent content.
   - _Requirements: 1.2, 1.3, 4.2, 4.4, 5.1, 5.2, 5.3, 5.4 · Design: Decisions 2, 3_
 
-- [ ] 4. Implement the `ChatProvider` + `useChat()`
+- [x] 4. Implement the `ChatProvider` + `useChat()`
   - Create `src/lib/chat/chat-provider.tsx` (`"use client"`): holds
     `conversationId`, `messages: ChatMessage[]`, `status: 'idle' | 'sending'`,
     `error: ChatError | null`, `lastAttemptedText`, and exposes
@@ -63,7 +63,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
   - Adapter maps `ChatMessageDto.content → text`, `role` through.
   - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 3.1, 3.2, 3.3, 5.1, 5.2, 5.3 · Design: Decisions 4, 5, 6_
 
-- [ ] 5. Make `MessageInput` functional
+- [x] 5. Make `MessageInput` functional
   - Convert `src/components/chat/message-input.tsx` to `"use client"`: wrap the
     row in a real `<form>` with `onSubmit`; controlled input bound to local
     state; send button `type="submit"`; Enter submits. On submit call
@@ -74,7 +74,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     existing label, `aria`, brand styling, and placeholder copy.
   - _Requirements: 1.1, 1.5, 1.6, 3.2 · Design: Decisions 7, 8_
 
-- [ ] 6. Render the live conversation in `MessageList`
+- [x] 6. Render the live conversation in `MessageList`
   - Convert `src/components/chat/message-list.tsx` to `"use client"`: read
     `messages` + `status` from `useChat()`. When `messages.length === 0` render
     `WelcomeState` (empty state, Req 2.2); otherwise map live `messages` to
@@ -87,14 +87,14 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
   - Drop `sampleMessages` from the component import; keep the `ChatMessage` type.
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 6.3 · Design: Decisions 3, 8_
 
-- [ ] 7. Add the pending ("typing") bubble
+- [x] 7. Add the pending ("typing") bubble
   - Create `src/components/chat/pending-bubble.tsx`: an agent-aligned bubble
     reusing `MessageBubble`'s agent styling (`border-brand`/`bg-brand-tint`) with
     three animated dots and an accessible label ("Finlux is thinking…"). No new
     design tokens; existing Tailwind utilities only.
   - _Requirements: 3.1 · Design: Decision 7_
 
-- [ ] 8. Add the safe error notice + retry
+- [x] 8. Add the safe error notice + retry
   - Create `src/components/chat/error-notice.tsx` (`"use client"`): renders the
     mapped `ChatError` as generic, status-free copy (validation / unavailable /
     network / not-found variants per Design "Security & non-disclosure"), with a
@@ -103,7 +103,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     chat. No stack traces, status codes, or internals (Req 5.4).
   - _Requirements: 5.1, 5.2, 5.3, 5.4 · Design: Decisions 6, 8_
 
-- [ ] 9. Wire `ChatProvider` into `ChatShell`
+- [x] 9. Wire `ChatProvider` into `ChatShell`
   - In `src/components/chat/chat-shell.tsx`, wrap the composed chat
     (`ChatHeader` + `MessageList` + `ErrorNotice` + `MessageInput`) in
     `<ChatProvider>`, keeping the `headerAction` slot (LogoutButton) unchanged.
@@ -111,7 +111,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     exactly the chat).
   - _Requirements: 1.2, 2.1 · Design: Decision 8_
 
-- [ ] 10. Verify token/`401`/non-disclosure wiring end to end (read-through)
+- [x] 10. Verify token/`401`/non-disclosure wiring end to end (read-through)
   - Confirm: every chat call goes through `getApiClient().authedFetch` (Bearer +
     global `401`), so a mid-session `401` clears the session and `AuthGate` shows
     the auth screen with **no** chat error (Req 4.3); no client-asserted
@@ -121,7 +121,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     no new env key was added (Req 7.1).
   - _Requirements: 4.2, 4.3, 4.4, 5.4, 7.1 · Design: "Security & non-disclosure"_
 
-- [ ] 11. Add the test runner and the send-flow tests (Req 7.4)
+- [x] 11. Add the test runner and the send-flow tests (Req 7.4)
   - Add dev-only tooling: **Vitest + @testing-library/react + jsdom** (pinned,
     mirroring the backend's Vitest choice), a `vitest.config.ts`, and a `test`
     script in `frontend/package.json`. Do not change runtime deps.
@@ -137,7 +137,7 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
     intact; `lint` + `build` remain the hard gate.
   - _Requirements: 7.4 · Design: "Testing strategy"_
 
-- [ ] 12. Verify build, lint, format (and tests)
+- [x] 12. Verify build, lint, format (and tests)
   - Run `pnpm --dir frontend lint`, `pnpm --dir frontend format:check`,
     `pnpm --dir frontend build` — all must pass (Req 7.3, the hard gate). If
     task 11's runner was added, run `pnpm --dir frontend test`. Manually confirm
@@ -150,6 +150,20 @@ per `frontend/AGENTS.md` (this Next.js has breaking changes). Prefer
   - _Requirements: 7.3, 7.4 · Design: "Verification"_
 
 ## Notes
+- **Status: implemented and verified (all 12 tasks done).** The Frontend Engineer
+  delivered the feature; the Tech Lead independently re-ran the gate —
+  `pnpm --dir frontend lint` ✓, `pnpm --dir frontend build` ✓ (TypeScript
+  included), `pnpm --dir frontend test` ✓ (21 tests across
+  `chat-api.test.ts` + `chat-send-flow.test.tsx`). Checkboxes marked by the Tech
+  Lead because the engineer's role is read-only on `.kiro/specs/**`.
+- Implementation notes from delivery: the test runner (Vitest + RTL + jsdom) was
+  added as dev-only tooling (anticipated by the design's Req-7.4 note); the
+  Vitest config uses `vitest.config.mts` to avoid an ESM-in-CJS warning. The
+  `ChatApi` adds an explicit `aborted-unauthorized` error kind for the globally
+  handled `401` — consistent with Decision 2 (the `401` is not surfaced as a
+  normal turn error). `auth-provider.tsx` change confirmed additive (only
+  `getApiClient()` added; flows/forms untouched).
+- Not committed yet — the Tech Lead/user handles commit + push.
 - Scope guard: **no backend/agent/guardrail change**; no streaming; no history
   sidebar or cross-conversation switching; no reload rehydration; no rich
   transaction rendering; no client money math/FX; no real-money movement.

@@ -1,7 +1,7 @@
 import { MCPServer } from '@mastra/mcp';
 import type { TransactionApiClient } from './transaction-api.client.js';
 import { buildTransactionTools } from './tools/index.js';
-import type { TransactionToolSet } from './tools/index.js';
+import type { BuildToolsOptions, TransactionToolSet } from './tools/index.js';
 
 /**
  * The in-process Finlux MCP server (design Decision 2a). It registers the
@@ -25,8 +25,8 @@ export class FinluxMcpServer {
   readonly server: MCPServer;
   readonly toolSet: TransactionToolSet;
 
-  constructor(client: TransactionApiClient) {
-    this.toolSet = buildTransactionTools(client);
+  constructor(client: TransactionApiClient, options: BuildToolsOptions = {}) {
+    this.toolSet = buildTransactionTools(client, options);
     this.server = new MCPServer({
       id: 'finlux-transactions',
       name: 'Finlux Transactions',

@@ -39,6 +39,14 @@ export interface AuthContextValue {
   register(input: RegisterInput): Promise<AuthError | null>;
   logout(): void;
   getToken(): string | null;
+  /**
+   * Returns the same shared `AuthApiClient` the provider uses internally
+   * (Design: Decision 1). This is the sanctioned reuse point for authenticated
+   * features (e.g. chat): consumers call `getApiClient().authedFetch(...)` to
+   * inherit the `Authorization: Bearer` header and the global `401` handling
+   * with zero duplication. Additive — does not change the auth flows/forms.
+   */
+  getApiClient(): AuthApiClient;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -147,9 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession();
   }, [clearSession]);
 
+  // Expose the same lazily-created shared client to authenticated features
+  // (Decision 1). Stable identity: delegates to the stable `getApi()`.
+  const getApiClient = useCallback((): AuthApiClient => getApi(), [getApi]);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, login, register, logout, getToken }),
-    [status, user, login, register, logout, getToken],
+    () => ({ status, user, login, register, logout, getToken, getApiClient }),
+    [status, user, login, register, logout, getToken, getApiClient],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

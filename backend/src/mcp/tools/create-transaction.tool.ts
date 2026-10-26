@@ -26,7 +26,9 @@ export function createCreateTransactionTool(client: TransactionApiClient) {
     description:
       'Create (save) a transaction for the caller. Only call this AFTER the user has explicitly confirmed the draft. Fold any category label into the description.',
     inputSchema: z.object({
-      amount: amountSchema,
+      amount: amountSchema.describe(
+        'The amount as a plain decimal string, e.g. "20.00" — never an object, number, or currency symbol.',
+      ),
       type: z.enum(TransactionType),
       currency: z.enum(TransactionCurrency),
       date: calendarDaySchema,

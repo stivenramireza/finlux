@@ -69,6 +69,7 @@ describe('MCP transaction tools', () => {
       [
         'create-transaction',
         'delete-transaction',
+        'get-current-date',
         'get-transaction',
         'list-transactions',
         'summarize-transactions',
@@ -151,6 +152,67 @@ describe('MCP transaction tools', () => {
       },
       TOKEN,
     );
+  });
+
+  describe('create-transaction amount coercion (model shape tolerance)', () => {
+    /**
+     * Runs create-transaction with an arbitrarily-shaped `amount` and returns
+     * the `amount` string the mocked client received (or throws on rejection).
+     */
+    async function createWithAmount(amount: unknown): Promise<string> {
+      client.create.mockResolvedValue(makeTx());
+      await tools['create-transaction'].execute!(
+        {
+          amount,
+          type: TransactionType.EXPENSE,
+          currency: TransactionCurrency.COP,
+          date: '2025-02-10',
+        } as never,
+        fakeContext(),
+      );
+      const body = client.create.mock.calls[0][0] as { amount: string };
+      // Downstream still receives a plain decimal string (never a float/object).
+      expect(typeof body.amount).toBe('string');
+      return body.amount;
+    }
+
+    it('accepts a plain decimal string unchanged', async () => {
+      expect(await createWithAmount('20.00')).toBe('20.00');
+    });
+
+    it('trims surrounding whitespace on a string', async () => {
+      expect(await createWithAmount('  20.00  ')).toBe('20.00');
+    });
+
+    it('coerces an integer number to a decimal string', async () => {
+      expect(await createWithAmount(20)).toBe('20');
+    });
+
+    it('coerces a fractional number to a decimal string', async () => {
+      expect(await createWithAmount(20.5)).toBe('20.5');
+    });
+
+    it('coerces a { value: string } wrapper object', async () => {
+      expect(await createWithAmount({ value: '20' })).toBe('20');
+    });
+
+    it('coerces a { amount: number } wrapper object', async () => {
+      expect(await createWithAmount({ amount: 20 })).toBe('20');
+    });
+
+    it.each([
+      ['an empty object', {}],
+      ['an array', ['20']],
+      ['a non-decimal string', 'twenty'],
+      ['zero', '0'],
+      ['zero with scale', '0.0000'],
+      ['five fractional digits', '20.00000'],
+      ['a number with > 4 dp', 20.00001],
+      ['a currency-symbol string', '$20.00'],
+    ])('rejects %s without calling the client', async (_label, amount) => {
+      await expect(createWithAmount(amount)).rejects.toThrow();
+      expect(client.create).not.toHaveBeenCalled();
+    });
   });
 
   it('update-transaction forwards a full replacement + token', async () => {

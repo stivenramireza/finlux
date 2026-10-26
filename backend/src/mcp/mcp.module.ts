@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TransactionApiClient } from './transaction-api.client.js';
 import { FinluxMcpServer } from './finlux-mcp-server.js';
 
@@ -18,8 +18,11 @@ import { FinluxMcpServer } from './finlux-mcp-server.js';
     TransactionApiClient,
     {
       provide: FinluxMcpServer,
-      inject: [TransactionApiClient],
-      useFactory: (client: TransactionApiClient) => new FinluxMcpServer(client),
+      inject: [TransactionApiClient, ConfigService],
+      useFactory: (client: TransactionApiClient, config: ConfigService) =>
+        new FinluxMcpServer(client, {
+          timeZone: config.get<string>('AGENT_TIME_ZONE'),
+        }),
     },
   ],
   exports: [FinluxMcpServer, TransactionApiClient],
