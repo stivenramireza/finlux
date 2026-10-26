@@ -401,7 +401,7 @@ New keys documented in `backend/.env.example` (no values):
 - `AGENT_CONTEXT_MAX_MESSAGES` — context window bound (default 20).
 - `TRANSACTION_API_BASE_URL` — base URL the MCP transaction tools call (the
   `/transactions` surface). Defaults to the app's own origin
-  (e.g. `http://localhost:3000`) in the single in-process deployment; made
+  (e.g. `http://localhost:8000`) in the single in-process deployment; made
   configurable so the MCP client is not hard-coded to localhost.
 All read via `ConfigService` by key name; never hard-coded, never committed. If
 `GOOGLE_GENERATIVE_AI_API_KEY` is missing the agent module fails fast with a

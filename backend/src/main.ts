@@ -16,7 +16,7 @@ async function bootstrap() {
   // local dev frontend so the documented setup works out of the box. The app
   // uses bearer tokens in the `Authorization` header (not cookies), so
   // credentials stay disabled and no wildcard origin is used.
-  const corsOrigin = (process.env.CORS_ORIGIN ?? 'http://localhost:3001')
+  const corsOrigin = (process.env.CORS_ORIGIN ?? 'http://localhost:3000')
     .split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
@@ -26,6 +26,6 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
   });
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 8000);
 }
 await bootstrap();

@@ -25,7 +25,7 @@ Prefer `package.json` scripts: `pnpm --dir backend lint`,
     note it if a major mismatch forces a choice).
   - Document in `backend/.env.example`: `AGENT_MODEL_ID` (default e.g.
     `gemini-2.5-flash`), `AGENT_CONTEXT_MAX_MESSAGES` (default 20), and
-    `TRANSACTION_API_BASE_URL` (default `http://localhost:3000`).
+    `TRANSACTION_API_BASE_URL` (default `http://localhost:8000`).
     `GOOGLE_GENERATIVE_AI_API_KEY` is already documented. Read all via
     `ConfigService` by key name.
   - _Requirements: 9.1, 9.2 · Design: "New dependencies", Decision 10_

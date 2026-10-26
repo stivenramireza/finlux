@@ -95,7 +95,7 @@ export class TransactionApiClient {
   constructor(configService: ConfigService) {
     const configured =
       configService.get<string>('TRANSACTION_API_BASE_URL') ??
-      'http://localhost:3000';
+      'http://localhost:8000';
     try {
       this.baseUrl = new URL(configured);
     } catch {
