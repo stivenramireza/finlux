@@ -38,17 +38,18 @@ fail.
 
 ## Start the stack
 
-Run both apps directly with `pnpm run start` — **no build step is needed**.
-The backend's `start` (`nest start`) compiles on the fly, and the frontend's
-`start` (`next start -p 3000`) is pinned to port 3000. Both bind to their fixed
-ports (backend 8000 from `PORT` in `backend/.env`, frontend 3000), so there's no
-need for the `--port` flag or the `next dev` workaround.
+Run both apps in **dev mode** — no build step, and environment variables are
+read directly at runtime (so editing `.env` takes effect on the next start).
+This is the correct approach for `NEXT_PUBLIC_*` values: `next dev` reads them at
+runtime, whereas `next start` would bake them in at build time and serve a stale
+value. Both bind to their fixed ports (backend 8000 from `PORT` in
+`backend/.env`, frontend 3000 — `next dev`'s default).
 
 ### Backend
 From `backend/`, run in the background and capture logs:
 
 ```bash
-pnpm run start > /tmp/finlux-backend.log 2>&1   # run_in_background
+pnpm run start:dev > /tmp/finlux-backend.log 2>&1   # run_in_background
 ```
 
 Wait a few seconds, then confirm it booted (look for
@@ -62,7 +63,7 @@ tail -n 40 /tmp/finlux-backend.log
 From `frontend/`, run in the background and capture logs:
 
 ```bash
-pnpm run start > /tmp/finlux-frontend.log 2>&1   # run_in_background
+pnpm run dev > /tmp/finlux-frontend.log 2>&1   # run_in_background
 ```
 
 Wait a few seconds, then confirm (look for
@@ -89,6 +90,7 @@ Expected: backend `/` → 200, frontend `/` → 200, login with empty body → 4
   URLs and log paths.
 - Logs: `/tmp/finlux-backend.log`, `/tmp/finlux-frontend.log`
   (`tail -f` to follow).
-- Both apps run with `pnpm run start` on their fixed ports (backend 8000,
-  frontend 3000); no build step is required.
+- Both apps run in dev mode (`start:dev` / `dev`) on their fixed ports (backend
+  8000, frontend 3000); no build step is required and env vars are read at
+  runtime.
 - To stop them later, kill the background processes the session started.
