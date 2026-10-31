@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="Finlux">
+  <!--
+    Finlux app icon. Mirrors the in-app brand mark: a rounded square in soft
+    brand tint with a brand-green border and a bold green "F". Brand green only
+    (#16a34a) — no second accent, no gradient. Tuned to stay legible at 16px.
+  -->
+  <rect x="1.5" y="1.5" width="29" height="29" rx="8" fill="#eaf6ef" stroke="#16a34a" stroke-width="2.5" />
+  <path d="M11.5 8.5h10v3.4h-6.3v3.7h5.6v3.3h-5.6v6.6h-3.7z" fill="#16a34a" />
+</svg>
