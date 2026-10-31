@@ -225,6 +225,12 @@ Index `idx_conversations_user_id` on `user_id`.
 | `created_at` | `timestamptz` | preserves turn order with `id` |
 
 Index `idx_messages_conversation_id_created_at` on `(conversation_id, created_at)`.
+
+> **Cross-reference — PII encryption at rest.** `messages.content` (both user
+> and agent turns) and `transactions.description` are stored **encrypted at
+> rest** and transparently decrypted on read, so the agent's grounding and the
+> duplicate-concept check operate on decrypted values in application code. See
+> `.kiro/specs/pii-encryption-at-rest/` for the authoritative design.
 No `updated_at` (messages are immutable). The enum follows the existing
 `transaction_type` pattern (`enumName`, created/dropped in the migration).
 

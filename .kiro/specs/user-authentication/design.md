@@ -19,6 +19,14 @@ New dependencies (pinned at implementation): `bcrypt` (+ `@types/bcrypt`),
 drop-in fallback.
 
 ## Data model (additive migrations — do not touch the initial migration)
+
+> **Cross-reference — PII encryption at rest.** The `email` is now stored
+> encrypted; registration/login resolve the user through a deterministic
+> `email_bidx` blind index (keyed HMAC over the normalized email) instead of the
+> plaintext `email` column, and uniqueness is enforced on `email_bidx`. The
+> generic-401/409 behavior described here is unchanged. See
+> `.kiro/specs/pii-encryption-at-rest/` for the authoritative design.
+
 ### `users` table — new column `password`
 - `password` (`varchar`, NOT NULL): stores the **bcrypt hash** (the column name
   is literally `password`; it never holds plaintext). On the entity it is mapped

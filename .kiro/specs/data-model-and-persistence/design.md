@@ -46,6 +46,12 @@ anchor.
 | `createdAt` | `timestamptz` | `@CreateDateColumn` |
 | `updatedAt` | `timestamptz` | `@UpdateDateColumn` |
 
+> **Cross-reference — PII encryption at rest.** `email` and `displayName` (and
+> `transactions.description`) are now stored **encrypted at rest**; `email`
+> keeps its name but holds ciphertext and is no longer unique — uniqueness and
+> login move to a deterministic `email_bidx` blind index. See
+> `.kiro/specs/pii-encryption-at-rest/` for the authoritative design.
+
 Relations: one-to-many to `Transaction`.
 
 ### Transaction (`transactions`)
