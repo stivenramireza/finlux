@@ -8,6 +8,15 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * All statements use `gen_random_uuid()` (built into PostgreSQL 13+), so no
  * extension needs to be enabled.
+ *
+ * PII encryption at rest (pii-encryption-at-rest spec): the `email`,
+ * `display_name`, and `transactions.description` columns now hold AES-256-GCM
+ * ciphertext envelopes (still `varchar`, encrypted transparently by the entity
+ * transformer). Because the encrypted `email` is unsearchable and not unique,
+ * the plaintext unique constraint `uq_users_email` is replaced by a NOT NULL
+ * `email_bidx` column (a deterministic keyed HMAC of the normalized email) with
+ * the unique constraint `uq_users_email_bidx`, used for login lookup and
+ * uniqueness.
  */
 export class InitialSchema1730000000000 implements MigrationInterface {
   name = 'InitialSchema1730000000000';
@@ -22,19 +31,24 @@ export class InitialSchema1730000000000 implements MigrationInterface {
     );
 
     // --- users ---
+    // `email` / `display_name` stay `varchar` but now hold ciphertext envelopes.
+    // Uniqueness/login move to the deterministic `email_bidx` blind index.
     await queryRunner.query(`
       CREATE TABLE "users" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "email" varchar NOT NULL,
+        "email_bidx" varchar NOT NULL,
         "display_name" varchar,
         "created_at" timestamptz NOT NULL DEFAULT now(),
         "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "pk_users" PRIMARY KEY ("id"),
-        CONSTRAINT "uq_users_email" UNIQUE ("email")
+        CONSTRAINT "uq_users_email_bidx" UNIQUE ("email_bidx")
       )
     `);
 
     // --- transactions ---
+    // `description` stays `varchar` nullable but now holds a ciphertext envelope
+    // when present (null is preserved unencrypted).
     await queryRunner.query(`
       CREATE TABLE "transactions" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),

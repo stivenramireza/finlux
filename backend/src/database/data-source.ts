@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { config as loadEnv } from 'dotenv';
 import { DataSource, type DataSourceOptions } from 'typeorm';
+import { initCryptoKeys } from '../crypto/crypto-keys.js';
 import { User } from '../users/entities/user.entity.js';
 import { Transaction } from '../transactions/entities/transaction.entity.js';
 import { Session } from '../session/entities/session.entity.js';
@@ -14,6 +15,10 @@ import { CreateConversationAndMessageTables1730000003000 } from './migrations/17
 // Load variables from `backend/.env` for the standalone TypeORM CLI, which runs
 // outside the Nest application (so ConfigModule is not available here).
 loadEnv();
+
+// Initialize the at-rest encryption keys so entity transformers can decrypt
+// when the CLI reflects over entities. Fails fast on a missing/invalid key.
+initCryptoKeys((name) => process.env[name]);
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {

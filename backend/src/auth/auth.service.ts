@@ -4,6 +4,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { QueryFailedError } from 'typeorm';
+import { CryptoService } from '../crypto/crypto.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { User } from '../users/entities/user.entity.js';
 import { SessionService } from '../session/session.service.js';
@@ -39,11 +41,15 @@ export class AuthService {
     private readonly hashingService: HashingService,
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
+    private readonly crypto: CryptoService,
   ) {}
 
-  /** Normalizes an email for storage/lookup (trim + lowercase). */
-  private static normalizeEmail(email: string): string {
-    return email.trim().toLowerCase();
+  /**
+   * Normalizes an email for storage/lookup (trim + lowercase). Delegates to the
+   * crypto module so auth normalization and the blind index never diverge.
+   */
+  private normalizeEmail(email: string): string {
+    return this.crypto.normalizeEmail(email);
   }
 
   /** Strips the password hash from a user before returning it. */
@@ -62,7 +68,7 @@ export class AuthService {
    * the password, persists the user, and returns the public view (no password).
    */
   async register(dto: RegisterDto): Promise<PublicUser> {
-    const email = AuthService.normalizeEmail(dto.email);
+    const email = this.normalizeEmail(dto.email);
 
     const existing = await this.usersService.findByEmail(email);
     if (existing) {
@@ -71,13 +77,22 @@ export class AuthService {
 
     const passwordHash = await this.hashingService.hash(dto.password);
 
-    const user = await this.usersService.create({
-      email,
-      displayName: dto.displayName ?? null,
-      password: passwordHash,
-    });
-
-    return AuthService.toPublicUser(user);
+    try {
+      const user = await this.usersService.create({
+        email,
+        displayName: dto.displayName ?? null,
+        password: passwordHash,
+      });
+      return AuthService.toPublicUser(user);
+    } catch (error) {
+      // Defense against the find-then-create race: the unique constraint on
+      // `email_bidx` is the authoritative guard. Map its violation to the same
+      // 409 as the pre-check (no disclosure of other details).
+      if (AuthService.isUniqueViolation(error)) {
+        throw new ConflictException('Email is already registered');
+      }
+      throw error;
+    }
   }
 
   /**
@@ -86,7 +101,7 @@ export class AuthService {
    * generic 401 so no field is disclosed (Requirement 3.2).
    */
   async login(dto: LoginDto): Promise<LoginResult> {
-    const email = AuthService.normalizeEmail(dto.email);
+    const email = this.normalizeEmail(dto.email);
 
     const user = await this.usersService.findByEmailWithPassword(email);
     if (!user) {
@@ -125,5 +140,16 @@ export class AuthService {
       return new Date(decoded.exp * 1000);
     }
     return new Date(Date.now() + 60 * 60 * 1000);
+  }
+
+  /**
+   * Detects a PostgreSQL unique-constraint violation (SQLSTATE 23505) surfaced
+   * by TypeORM, used to map an `email_bidx` collision to a 409.
+   */
+  private static isUniqueViolation(error: unknown): boolean {
+    return (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { code?: string }).code === '23505'
+    );
   }
 }

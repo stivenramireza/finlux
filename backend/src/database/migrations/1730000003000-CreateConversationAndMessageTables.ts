@@ -9,6 +9,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   user for listing.
  * - `messages`: an immutable turn in a conversation, cascade on
  *   delete, indexed by `(conversation_id, created_at)` for ordered loads.
+ *   NOTE (pii-encryption-at-rest spec): `content` stays `text` but now holds an
+ *   AES-256-GCM ciphertext envelope (encrypted transparently by the entity
+ *   transformer). No DDL change is required — `text` already holds the envelope.
  *
  * `down()` reverses `up()` exactly: drop indexes, then tables (messages before
  * conversations for FK order), then the enum.

@@ -1,8 +1,13 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
+import { initCryptoKeys } from './crypto/crypto-keys.js';
 
 async function bootstrap() {
+  // Initialize the at-rest encryption keys from the environment before the Nest
+  // app (and its entity transformers) come up. Fails fast on a missing/invalid
+  // key so a misconfiguration never starts serving with weakened security.
+  initCryptoKeys((name) => process.env[name]);
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(
     new ValidationPipe({

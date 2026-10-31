@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   type Relation,
 } from 'typeorm';
+import { encryptedColumnTransformer } from '../crypto/encrypted-column.transformer.js';
 import { Conversation } from './conversation.entity.js';
 
 /** Author of a conversation message (closed enum). */
@@ -40,8 +41,12 @@ export class Message {
   })
   role: MessageRole;
 
-  /** The turn text. Treated as sensitive PII; never logged. */
-  @Column({ type: 'text' })
+  /**
+   * The turn text. Treated as sensitive PII; stored ENCRYPTED at rest
+   * (transparent AES-256-GCM) and never logged. The column stays `text` and now
+   * holds the ciphertext envelope.
+   */
+  @Column({ type: 'text', transformer: encryptedColumnTransformer })
   content: string;
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
+import type { CryptoService } from '../crypto/crypto.service.js';
 import type { UsersService } from '../users/users.service.js';
 import type { HashingService } from './hashing/hashing.service.js';
 import type { SessionService } from '../session/session.service.js';
@@ -10,6 +11,7 @@ function makeUser(overrides: Partial<User> = {}): User {
   const base: User = {
     id: 'user-1',
     email: 'user@example.com',
+    emailBidx: 'bidx-user@example.com',
     displayName: null,
     password: 'hashed',
     createdAt: new Date('2024-01-01T00:00:00Z'),
@@ -17,6 +19,20 @@ function makeUser(overrides: Partial<User> = {}): User {
     transactions: [],
   };
   return { ...base, ...overrides };
+}
+
+/**
+ * A crypto stub whose `normalizeEmail` matches the real behavior (trim +
+ * lowercase) so AuthService normalization is exercised; `blindIndex` is a
+ * deterministic stand-in (not needed by these mocked-repo tests).
+ */
+function makeCrypto(): CryptoService {
+  return {
+    encrypt: (v: string) => v,
+    decrypt: (v: string) => v,
+    blindIndex: (normalized: string) => `bidx-${normalized}`,
+    normalizeEmail: (email: string) => email.trim().toLowerCase(),
+  } as unknown as CryptoService;
 }
 
 describe('AuthService.register', () => {
@@ -57,6 +73,7 @@ describe('AuthService.register', () => {
       hashingService as unknown as HashingService,
       jwtService as never,
       sessionService as unknown as SessionService,
+      makeCrypto(),
     );
   });
 
@@ -89,6 +106,21 @@ describe('AuthService.register', () => {
     await expect(
       service.register({ email: 'user@example.com', password: 'Str0ng!Pass' }),
     ).rejects.toBeInstanceOf(ConflictException);
+    expect(usersService.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a case-insensitive duplicate (normalized lookup) with a conflict', async () => {
+    // The normalized email is what reaches findByEmail; a differently-cased
+    // registration collides with the existing normalized record.
+    usersService.findByEmail.mockResolvedValue(makeUser());
+
+    await expect(
+      service.register({
+        email: '  USER@Example.com ',
+        password: 'Str0ng!Pass',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(usersService.findByEmail).toHaveBeenCalledWith('user@example.com');
     expect(usersService.create).not.toHaveBeenCalled();
   });
 });
@@ -131,6 +163,7 @@ describe('AuthService.login', () => {
       hashingService as unknown as HashingService,
       jwtService as never,
       sessionService as unknown as SessionService,
+      makeCrypto(),
     );
   });
 

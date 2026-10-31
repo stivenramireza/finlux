@@ -10,6 +10,7 @@ import {
   type Relation,
 } from 'typeorm';
 import { columnNumericTransformer } from '../../database/column-numeric.transformer.js';
+import { encryptedColumnTransformer } from '../../crypto/encrypted-column.transformer.js';
 import { User } from '../../users/entities/user.entity.js';
 
 /** Closed domain of transaction kinds. */
@@ -69,7 +70,16 @@ export class Transaction {
   @Column({ type: 'date' })
   date: string;
 
-  @Column({ type: 'varchar', nullable: true })
+  /**
+   * Free-text note. Sensitive PII: stored ENCRYPTED at rest (transparent
+   * AES-256-GCM). The column stays `varchar` nullable and now holds the
+   * ciphertext envelope; `null` is preserved unencrypted.
+   */
+  @Column({
+    type: 'varchar',
+    nullable: true,
+    transformer: encryptedColumnTransformer,
+  })
   description: string | null;
 
   @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
