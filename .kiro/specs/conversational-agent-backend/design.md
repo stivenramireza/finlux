@@ -192,7 +192,7 @@ Routes live in a new `ChatController`, all class-level `@UseGuards(JwtAuthGuard)
   sub-resource keeps ownership checks and the `404` path unambiguous versus a
   single overloaded `POST /chat` with an optional id.
 
-### Decision 2 — Persistence: own `conversation` + `message` tables via TypeORM
+### Decision 2 — Persistence: own `conversations` + `messages` tables via TypeORM
 We **do not** delegate persistence to a Mastra memory/storage backend. Finlux
 already owns Postgres + TypeORM with strict per-user scoping; conversations are
 sensitive PII and must obey the same isolation and migration discipline as
@@ -205,26 +205,26 @@ Additive migration `CreateConversationAndMessageTables` (new timestamp prefix
 after `1730000002000`), registered in **both** `data-source.ts` and
 `database.module.ts`, entities added to both `entities` arrays.
 
-`conversation` table:
+`conversations` table:
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | `uuid` PK | `gen_random_uuid()` |
-| `user_id` | `uuid` FK → `user.id`, NOT NULL | `ON DELETE CASCADE` |
+| `user_id` | `uuid` FK → `users.id`, NOT NULL | `ON DELETE CASCADE` |
 | `title` | `varchar`, nullable | optional, derived from first message later |
 | `created_at` / `updated_at` | `timestamptz` | |
 
-Index `idx_conversation_user_id` on `user_id`.
+Index `idx_conversations_user_id` on `user_id`.
 
-`message` table:
+`messages` table:
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | `uuid` PK | |
-| `conversation_id` | `uuid` FK → `conversation.id`, NOT NULL | `ON DELETE CASCADE` |
+| `conversation_id` | `uuid` FK → `conversations.id`, NOT NULL | `ON DELETE CASCADE` |
 | `role` | enum `user`\|`agent` (`message_role`) | author (Req 2.5) |
 | `content` | `text`, NOT NULL | the turn text |
 | `created_at` | `timestamptz` | preserves turn order with `id` |
 
-Index `idx_message_conversation_id_created_at` on `(conversation_id, created_at)`.
+Index `idx_messages_conversation_id_created_at` on `(conversation_id, created_at)`.
 No `updated_at` (messages are immutable). The enum follows the existing
 `transaction_type` pattern (`enumName`, created/dropped in the migration).
 

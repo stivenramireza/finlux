@@ -20,13 +20,14 @@ manager and Node version are pinned in `backend/package.json`.
 - **ESM imports use `.js` extensions.** The backend is `"type": "module"`.
   Every intra-project import (entities, migrations) must end in `.js`, even
   though the source is `.ts` (e.g. `import { User } from '../users/entities/user.entity.js'`).
-- **Table names are `snake_case` singular:** `user`, `transaction`, `session`.
-  Never plural.
-- **Named constraints and indexes**, following these prefixes:
-  - Primary key: `pk_<table>` (e.g. `pk_user`)
-  - Unique: `uq_<table>_<col>` (e.g. `uq_user_email`)
-  - Foreign key: `fk_<table>_<ref>` (e.g. `fk_transaction_user`)
-  - Index: `idx_<table>_<cols>` (e.g. `idx_transaction_user_id_date`)
+- **Table names are `snake_case` plural:** `users`, `transactions`, `sessions`,
+  `conversations`, `messages`. Never singular.
+- **Named constraints and indexes**, following these prefixes (the `<table>`
+  segment uses the plural table name):
+  - Primary key: `pk_<table>` (e.g. `pk_users`)
+  - Unique: `uq_<table>_<col>` (e.g. `uq_users_email`)
+  - Foreign key: `fk_<table>_<ref>` (e.g. `fk_transactions_user`)
+  - Index: `idx_<table>_<cols>` (e.g. `idx_transactions_user_id_date`)
 - **Column names are `snake_case`** in SQL (`user_id`, `created_at`); entities
   map them with `name:` where the TS property is camelCase.
 - **Enums** are real Postgres enum types with an explicit `enumName`
@@ -53,7 +54,7 @@ export class <PascalCaseName><timestamp> implements MigrationInterface {
   name = '<PascalCaseName><timestamp>';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`/* forward DDL, singular table + named constraints */`);
+    await queryRunner.query(`/* forward DDL, plural table + named constraints */`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -79,7 +80,7 @@ context.
 
 ### 3. If you added/changed a table, update the entity too
 Entity files live under `backend/src/<feature>/entities/*.entity.ts`. Keep the
-`@Entity({ name: '<singular>' })`, column `name:` mappings, relations, and
+`@Entity({ name: '<plural>' })`, column `name:` mappings, relations, and
 `@Index(...)` consistent with the migration. Register new entities in the
 `entities: [...]` arrays in both `data-source.ts` and `database.module.ts`.
 

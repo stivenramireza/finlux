@@ -21,8 +21,8 @@ export enum MessageRole {
  * the `agent`. Turn order is preserved by `createdAt` (and the supporting
  * index). Messages are never updated, so there is no `updated_at`.
  */
-@Entity({ name: 'message' })
-@Index('idx_message_conversation_id_created_at', [
+@Entity({ name: 'messages' })
+@Index('idx_messages_conversation_id_created_at', [
   'conversationId',
   'createdAt',
 ])

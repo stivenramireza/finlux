@@ -9,7 +9,7 @@ returns a grounded, traceable reply.
 
 This spec adds the **agent + chat HTTP layer only**. It builds additively on:
 
-- `data-model-and-persistence` (implemented) — the `transaction` table and the
+- `data-model-and-persistence` (implemented) — the `transactions` table and the
   fully **user-scoped `TransactionsService`** (`create`, `findAll` with
   optional `type`/date filters, `findOne`/`findOneOrFail`, `update`, `remove`),
   where every method takes `userId` and applies it in the `WHERE` clause.
@@ -128,7 +128,7 @@ continue it and the agent has context.
 
 Acceptance criteria (EARS):
 1. THE SYSTEM SHALL persist conversations and their messages, each conversation
-   owned by exactly one user (FK to `user`, scoped like all financial data).
+   owned by exactly one user (FK to `users`, scoped like all financial data).
 2. WHEN the caller sends a message without a conversation id, THE SYSTEM SHALL
    create a new conversation owned by the caller and attach the message to it.
 3. WHEN the caller sends a message with a conversation id they own, THE SYSTEM
@@ -294,7 +294,7 @@ These are flagged for the Tech Lead / Solution Architect to resolve in
   coordination), or keep categories conversational-only for now. Design decides;
   if a schema change is chosen it must be an additive migration consistent with
   the ORM-migration convention.
-- **Conversation/message schema.** The exact `conversation` and `message` tables
+- **Conversation/message schema.** The exact `conversations` and `messages` tables
   (names, columns, indexes, cascade) and whether message history is capped or
   summarized for context.
 - **Pending-action mechanism.** How the unconfirmed draft is represented across
@@ -317,7 +317,7 @@ These are flagged for the Tech Lead / Solution Architect to resolve in
 - Tasks (`tasks.md`): not started — pending design.
 
 Depends on: `data-model-and-persistence` (implemented — user-scoped
-`TransactionsService` and the `transaction` table), `user-authentication`
+`TransactionsService` and the `transactions` table), `user-authentication`
 (implemented — `JwtAuthGuard` and `@CurrentUser`), `transaction-http-api`
 (specced — shares the same service and field/filter semantics),
 `agentic-chat-layout` (implemented — the static chat UI this backend will later

@@ -10,7 +10,7 @@ implemented transaction HTTP API (`transaction-http-api`).
 HTTP API `GET/POST/PUT/DELETE /transactions` as a client, forwarding the
 **caller's JWT** as `Authorization: Bearer`. The agent has **no direct DB
 access** to transactions and does **not** inject `TransactionsService`. The only
-persistence this spec owns is its own `conversation`/`message` tables (additive
+persistence this spec owns is its own `conversations`/`messages` tables (additive
 migration, `create-orm-migration` convention). The Gemini model and the
 transaction API client are **mocked** in unit tests.
 
@@ -31,11 +31,11 @@ Prefer `package.json` scripts: `pnpm --dir backend lint`,
   - _Requirements: 9.1, 9.2 · Design: "New dependencies", Decision 10_
 
 - [x] 2. Create the `conversation` and `message` entities
-  - `chat/conversation.entity.ts` (table `conversation`): `id` uuid PK,
-    `userId` (`user_id`) uuid NOT NULL FK → `user` (CASCADE), nullable `title`,
+  - `chat/conversation.entity.ts` (table `conversations`): `id` uuid PK,
+    `userId` (`user_id`) uuid NOT NULL FK → `users` (CASCADE), nullable `title`,
     `createdAt`/`updatedAt`.
-  - `chat/message.entity.ts` (table `message`): `id`, `conversationId`
-    (`conversation_id`) FK → `conversation` (CASCADE), `role` enum
+  - `chat/message.entity.ts` (table `messages`): `id`, `conversationId`
+    (`conversation_id`) FK → `conversations` (CASCADE), `role` enum
     (`user`|`agent`, `enumName: 'message_role'`), `content` `text` NOT NULL,
     `createdAt` only (immutable). Index `(conversation_id, created_at)`.
   - Match the style of `transaction.entity.ts` (snake_case, `Relation<...>`,
@@ -46,10 +46,10 @@ Prefer `package.json` scripts: `pnpm --dir backend lint`,
 - [x] 3. Author and register the additive migration
   - Activate the **`create-orm-migration`** skill first and follow it.
   - `database/migrations/<ts>-CreateConversationAndMessageTables.ts` (timestamp
-    after `1730000002000`): create the `message_role` enum, the `conversation`
-    table (FK `fk_conversation_user` CASCADE, index `idx_conversation_user_id`),
-    the `message` table (FK `fk_message_conversation` CASCADE, index
-    `idx_message_conversation_id_created_at`); `down` drops indexes, tables, then
+    after `1730000002000`): create the `message_role` enum, the `conversations`
+    table (FK `fk_conversations_user` CASCADE, index `idx_conversations_user_id`),
+    the `messages` table (FK `fk_messages_conversation` CASCADE, index
+    `idx_messages_conversation_id_created_at`); `down` drops indexes, tables, then
     the enum. Mirror `1730000002000-CreateSessionTable.ts` in style.
   - Register the entities + migration in **both** `database/data-source.ts` and
     `database/database.module.ts` (entities and migrations arrays, `.js` imports).
@@ -198,7 +198,7 @@ Prefer `package.json` scripts: `pnpm --dir backend lint`,
   - Run `pnpm --dir backend test:e2e` against a reachable Postgres (model mocked,
     transaction API real/in-process). Apply `pnpm --dir backend migration:run`,
     confirm `migration:show` `[X]`, then round-trip `migration:revert` (drops
-    `conversation`/`message` + `message_role`) and `migration:run` again. If the
+    `conversations`/`messages` + `message_role`) and `migration:run` again. If the
     DB is unavailable, note it explicitly: unit tests gate scoping/capture/JWT
     forwarding; e2e + migration run where the DB exists.
   - _Requirements: 9.3, 9.4 · Design: "Verification"_

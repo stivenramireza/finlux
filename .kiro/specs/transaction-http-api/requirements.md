@@ -6,7 +6,7 @@ frontend (and, later, the agent layer) can **create, read, update, and delete**
 transactions that belong to the currently logged-in user. This spec adds the
 **HTTP layer only** on top of the already-implemented persistence and auth:
 
-- `data-model-and-persistence` already provides the `transaction` table and a
+- `data-model-and-persistence` already provides the `transactions` table and a
   fully **user-scoped `TransactionsService`** (`create`, `findAll` with
   optional `type`/date filters, `findOne`/`findOneOrFail`, `update`, `remove` —
   physical delete), where every method takes `userId` and applies it in the
@@ -257,6 +257,6 @@ These are flagged for the Tech Lead / Solution Architect to resolve in
 - Tasks (`tasks.md`): not started — pending design.
 
 Depends on: `data-model-and-persistence` (implemented — provides the
-user-scoped `TransactionsService` and the `transaction` table),
+user-scoped `TransactionsService` and the `transactions` table),
 `user-authentication` (implemented — provides `JwtAuthGuard` and
 `@CurrentUser`).

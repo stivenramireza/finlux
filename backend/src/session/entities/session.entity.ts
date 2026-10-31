@@ -14,13 +14,13 @@ import { User } from '../../users/entities/user.entity.js';
 /**
  * Audit record of an issued login session (user-authentication spec).
  *
- * The table is singular (`session`) and audit-only: it records who logged in
+ * The table (`sessions`) is audit-only: it records who logged in
  * and when the token expires. The auth guard does NOT read it — token validity
  * is determined statelessly from the JWT signature + expiry. The `token` column
  * stores a SHA-256 hash of the issued JWT, never the raw token.
  */
-@Entity({ name: 'session' })
-@Index('idx_session_user_id', ['userId'])
+@Entity({ name: 'sessions' })
+@Index('idx_sessions_user_id', ['userId'])
 export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;

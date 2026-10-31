@@ -107,7 +107,7 @@ describe('Transactions API (e2e)', () => {
   afterAll(async () => {
     if (dataSource?.isInitialized && createdUserIds.length > 0) {
       // ON DELETE CASCADE removes the users' transactions and sessions.
-      await dataSource.query('DELETE FROM "user" WHERE id = ANY($1)', [
+      await dataSource.query('DELETE FROM "users" WHERE id = ANY($1)', [
         createdUserIds,
       ]);
     }

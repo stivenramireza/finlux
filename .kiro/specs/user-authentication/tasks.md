@@ -2,7 +2,7 @@
 
 Implementation plan. Backend-only (`backend/`), NestJS + TypeORM, ESM (`.js`
 imports). Additive migrations on top of `data-model-and-persistence`; the
-`session` table is singular and audit-only. No UI.
+`sessions` table is plural and audit-only. No UI.
 
 - [x] 1. Add and pin auth dependencies
   - Add `bcrypt` (+ `@types/bcrypt`), `@nestjs/jwt`, `@nestjs/passport`,
@@ -21,8 +21,8 @@ imports). Additive migrations on top of `data-model-and-persistence`; the
   - _Requirements: 2.1_
 
 - [x] 4. Create the Session entity and audit migration
-  - `session/entities/session.entity.ts` (singular table `session`): `id`,
-    `user_id` FK → `user` (CASCADE), `token`, `expires_at`, timestamps; index on
+  - `session/entities/session.entity.ts` (plural table `sessions`): `id`,
+    `user_id` FK → `users` (CASCADE), `token`, `expires_at`, timestamps; index on
     `user_id`. Author migration `CreateSessionTable` and register it.
   - _Requirements: 3.1_
 

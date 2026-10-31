@@ -15,11 +15,11 @@ import { Message } from './message.entity.js';
 
 /**
  * A conversation between a user and the Finlux agent. Owned by exactly one user
- * (FK to `user`, cascade on delete) and scoped like all financial data. Holds
+ * (FK to `users`, cascade on delete) and scoped like all financial data. Holds
  * an ordered set of {@link Message} turns.
  */
-@Entity({ name: 'conversation' })
-@Index('idx_conversation_user_id', ['userId'])
+@Entity({ name: 'conversations' })
+@Index('idx_conversations_user_id', ['userId'])
 export class Conversation {
   @PrimaryGeneratedColumn('uuid')
   id: string;

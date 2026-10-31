@@ -3,7 +3,7 @@
 ## Goal
 Add email/password authentication to Finlux: register, login, a stateless JWT
 access token (1-hour lifetime), route protection that resolves the current
-user, and an audit `session` table. Builds additively on the `user` table from
+user, and an audit `sessions` table. Builds additively on the `users` table from
 `data-model-and-persistence`. No UI; backend only.
 
 ## Tech context
@@ -19,13 +19,13 @@ New dependencies (pinned at implementation): `bcrypt` (+ `@types/bcrypt`),
 drop-in fallback.
 
 ## Data model (additive migrations — do not touch the initial migration)
-### `user` table — new column `password`
+### `users` table — new column `password`
 - `password` (`varchar`, NOT NULL): stores the **bcrypt hash** (the column name
   is literally `password`; it never holds plaintext). On the entity it is mapped
   with `select: false` so it is never returned/serialized unless explicitly
   selected.
 
-### new `session` table (singular) — audit only
+### new `sessions` table (plural) — audit only
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | `uuid` PK | generated |
@@ -35,7 +35,7 @@ drop-in fallback.
 | `created_at` | `timestamptz` | `@CreateDateColumn` |
 | `updated_at` | `timestamptz` | `@UpdateDateColumn` |
 
-Index on `user_id`. The `session` table is **audit only**: it records who logged
+Index on `user_id`. The `sessions` table is **audit only**: it records who logged
 in and when the session expires. The auth guard does **not** read it; token
 validity is determined statelessly by JWT signature + expiry.
 
@@ -52,7 +52,7 @@ validity is determined statelessly by JWT signature + expiry.
   `expires_at = now + 1h`.
 - Logout is client-side (the client discards the token); the token expires on
   its own after one hour. There is no server-side revocation, consistent with
-  the audit-only `session` table.
+  the audit-only `sessions` table.
 
 ## Flows
 - `POST /auth/register`: validate input + password policy; normalize email
@@ -100,7 +100,7 @@ backend/src/session/
 └── entities/session.entity.ts
 backend/src/database/migrations/
 ├── <ts>-AddUserPassword.ts      # adds user.password
-└── <ts>-CreateSessionTable.ts   # creates session
+└── <ts>-CreateSessionTable.ts   # creates sessions
 ```
 
 ## Security baseline

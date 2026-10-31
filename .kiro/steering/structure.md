@@ -33,6 +33,13 @@ finlux/
 - Directories and files: `kebab-case`.
 - Spec folders: `kebab-case` describing the feature
   (e.g. `transaction-categorization`).
+- Database tables: `snake_case` **plural** (e.g. `users`, `transactions`,
+  `sessions`, `conversations`, `messages`) — never singular. Columns are
+  `snake_case` (the entity maps them with `name:` where the TS property is
+  camelCase); enum type names and TypeScript entity/class names are not
+  pluralized. Named constraints/indexes embed the plural table name
+  (`pk_<table>`, `uq_<table>_<col>`, `fk_<table>_<ref>`, `idx_<table>_<cols>`).
+  See the `create-orm-migration` skill for the full migration convention.
 
 > As the backend and frontend are scaffolded, extend this document with their
 > concrete internal folder structures so the layout stays discoverable.
