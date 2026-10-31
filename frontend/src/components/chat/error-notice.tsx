@@ -50,7 +50,7 @@ export function ErrorNotice() {
   return (
     <div
       role="alert"
-      className="border-brand/40 bg-brand-tint text-foreground mx-4 mb-2 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm sm:mx-5"
+      className="border-brand/40 bg-brand-tint text-foreground animate-rise-in mx-4 mb-2 flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm sm:mx-6"
     >
       <p className="min-w-0 flex-1 leading-relaxed">{errorToMessage(error)}</p>
       <div className="flex shrink-0 items-center gap-2">

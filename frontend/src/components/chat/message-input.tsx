@@ -40,12 +40,12 @@ export function MessageInput() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-brand/30 bg-surface/60 border-t px-4 py-4 sm:px-5"
+      className="border-brand/20 bg-surface/70 border-t px-4 py-4 sm:px-6"
     >
       <div
         role="group"
         aria-label="Message input"
-        className="border-brand focus-within:ring-brand/40 bg-background flex items-center gap-2 rounded-full border py-1.5 pr-1.5 pl-2 focus-within:ring-4"
+        className="border-brand/70 focus-within:border-brand focus-within:ring-brand/30 bg-background flex items-center gap-2 rounded-full border py-1.5 pr-1.5 pl-2 transition-colors focus-within:ring-4"
       >
         <label htmlFor="chat-message" className="sr-only">
           Message Finlux
@@ -57,7 +57,7 @@ export function MessageInput() {
           name="message"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="Ask Finlux about your finances…"
+          placeholder="Tell Finlux about your income and expenses…"
           autoComplete="off"
           maxLength={MAX_MESSAGE_LENGTH}
           disabled={isSending}

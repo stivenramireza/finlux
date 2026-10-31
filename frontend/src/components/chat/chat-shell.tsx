@@ -20,7 +20,7 @@ interface ChatShellProps {
 export function ChatShell({ headerAction }: ChatShellProps) {
   return (
     <main className="flex flex-1 items-stretch justify-center p-4 sm:p-6">
-      <div className="border-brand/60 bg-background flex h-full max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border shadow-sm sm:max-h-[calc(100dvh-3rem)]">
+      <div className="border-brand/50 bg-background shadow-brand/5 flex h-full max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-lg sm:max-h-[calc(100dvh-3rem)]">
         <ChatProvider>
           <ChatHeader action={headerAction} />
           <MessageList />

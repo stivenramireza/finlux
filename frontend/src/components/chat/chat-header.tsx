@@ -16,10 +16,10 @@ interface ChatHeaderProps {
  */
 export function ChatHeader({ action }: ChatHeaderProps) {
   return (
-    <header className="border-brand/30 bg-surface/60 flex items-center gap-3 border-b px-5 py-4">
+    <header className="border-brand/20 bg-surface/70 flex items-center gap-3.5 border-b px-5 py-4 sm:px-6">
       <span
         aria-hidden="true"
-        className="border-brand/70 text-brand bg-brand-tint flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-base font-semibold"
+        className="border-brand/60 text-brand bg-brand-tint ring-brand/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-base font-semibold ring-4"
       >
         F
       </span>
@@ -27,7 +27,7 @@ export function ChatHeader({ action }: ChatHeaderProps) {
         <h1 className="text-foreground text-lg leading-tight font-semibold tracking-tight">
           Finlux
         </h1>
-        <p className="text-muted-foreground truncate text-sm leading-tight">
+        <p className="text-muted-foreground truncate text-sm leading-relaxed">
           Your AI agent that brings clarity to your personal finances.
         </p>
       </div>
