@@ -306,9 +306,14 @@ Tools provided (all user-scoped via the propagated JWT; all HTTP calls to
 - `create-transaction` → `POST /transactions` — **confirmation-gated** (Dec. 6).
 - `update-transaction` → `PUT /transactions/:id`.
 - `delete-transaction` → `DELETE /transactions/:id`.
-- `summarize-transactions` → calls `GET /transactions` (with filters) and
-  aggregates the result **grouped by currency** (never summing across currencies
-  — Req 6.4), totals as decimal **strings** computed without float (Req 3.5).
+- `summarize-transactions` → calls `GET /transactions` (with optional date
+  filters) and aggregates the result **grouped by currency** (never across
+  currencies — Req 6.4). Per currency it returns `income` (sum of incomes),
+  `expense` (sum of expenses), `net` = `income − expense` (the subtraction,
+  computed server-side), and `count`. All figures are decimal **strings**
+  computed without float (BigInt minor units — Req 3.5). This is the single
+  grounded source for both totals (sums) and balances (the net subtraction), so
+  the agent never does arithmetic itself.
 
 The API client maps HTTP statuses to tool-level outcomes the agent can reason
 about without leaking internals: `401` (should not happen with a valid caller

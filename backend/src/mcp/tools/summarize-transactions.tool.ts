@@ -1,34 +1,45 @@
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
-import { TransactionCurrency } from '../../transactions/entities/transaction.entity.js';
-import { TransactionType } from '../../transactions/entities/transaction.entity.js';
+import {
+  TransactionCurrency,
+  TransactionType,
+} from '../../transactions/entities/transaction.entity.js';
 import type { TransactionApiClient } from '../transaction-api.client.js';
 import { requestContextSchema } from './request-context.js';
 import { requireAccessToken } from './context-token.js';
 import { calendarDaySchema } from './schemas.js';
-import { sumDecimalStrings } from './decimal.js';
+import { subtractDecimalStrings, sumDecimalStrings } from './decimal.js';
 
-/** A per-currency total (never summed across currencies). */
+/**
+ * A per-currency breakdown. Figures are exact decimal strings (never floats);
+ * currencies are never combined (no FX). `net` is `income − expense` (may be
+ * negative), computed server-side so the agent never does the subtraction.
+ */
 const currencyGroup = z.object({
   currency: z.enum(TransactionCurrency),
-  total: z.string(),
+  income: z.string(),
+  expense: z.string(),
+  net: z.string(),
   count: z.number().int(),
 });
 
 /**
  * Read-only aggregation over the caller's transactions, GROUPED BY CURRENCY.
  * Fetches rows via the transaction HTTP API (forwarding the caller's JWT), then
- * totals per currency as exact decimal strings computed WITHOUT floating point;
- * currencies are never summed together (no FX). Token comes from the request
- * context (Layer 1).
+ * per currency returns the income sum, the expense sum, and the net balance
+ * (income − expense) — all as exact decimal strings computed WITHOUT floating
+ * point (BigInt minor units). Currencies are never summed together (no FX).
+ * Token comes from the request context (Layer 1).
+ *
+ * This is the single grounded source for both totals (sums) and balances (the
+ * subtraction), so the agent never has to do arithmetic itself.
  */
 export function createSummarizeTransactionsTool(client: TransactionApiClient) {
   return createTool({
     id: 'summarize-transactions',
     description:
-      "Summarize the caller's transactions grouped by currency (optionally filtered by type and/or an inclusive date range). Totals are per-currency and never combined across currencies.",
+      "Summarize the caller's transactions grouped by currency, reporting per-currency income (sum of incomes), expense (sum of expenses), and net (income minus expense, the balance — may be negative), plus a count. Optionally filtered by an inclusive date range. Figures are exact decimal strings and are never combined across currencies.",
     inputSchema: z.object({
-      type: z.enum(TransactionType).optional(),
       dateFrom: calendarDaySchema.optional(),
       dateTo: calendarDaySchema.optional(),
     }),
@@ -38,25 +49,42 @@ export function createSummarizeTransactionsTool(client: TransactionApiClient) {
       const token = requireAccessToken(context);
       const rows = await client.list(
         {
-          type: inputData.type,
           dateFrom: inputData.dateFrom,
           dateTo: inputData.dateTo,
         },
         token,
       );
 
-      const groups = new Map<TransactionCurrency, string[]>();
+      const groups = new Map<
+        TransactionCurrency,
+        { income: string[]; expense: string[]; count: number }
+      >();
       for (const tx of rows) {
-        const list = groups.get(tx.currency) ?? [];
-        list.push(tx.amount);
-        groups.set(tx.currency, list);
+        const group = groups.get(tx.currency) ?? {
+          income: [],
+          expense: [],
+          count: 0,
+        };
+        if (tx.type === TransactionType.INCOME) {
+          group.income.push(tx.amount);
+        } else {
+          group.expense.push(tx.amount);
+        }
+        group.count += 1;
+        groups.set(tx.currency, group);
       }
 
-      const byCurrency = [...groups.entries()].map(([currency, amounts]) => ({
-        currency,
-        total: sumDecimalStrings(amounts),
-        count: amounts.length,
-      }));
+      const byCurrency = [...groups.entries()].map(([currency, group]) => {
+        const income = sumDecimalStrings(group.income);
+        const expense = sumDecimalStrings(group.expense);
+        return {
+          currency,
+          income,
+          expense,
+          net: subtractDecimalStrings(income, expense),
+          count: group.count,
+        };
+      });
 
       return { byCurrency };
     },

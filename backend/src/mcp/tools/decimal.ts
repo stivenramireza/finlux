@@ -31,3 +31,12 @@ export function sumDecimalStrings(amounts: string[]): string {
   const total = amounts.reduce((acc, a) => acc + toMinorUnits(a), 0n);
   return fromMinorUnits(total);
 }
+
+/**
+ * Subtracts `b` from `a` exactly (no float), returning a 4-dp string. The
+ * result may be negative (e.g. `'10.0000' - '30.0000' === '-20.0000'`); the
+ * BigInt minor-units path and `fromMinorUnits` handle the sign correctly.
+ */
+export function subtractDecimalStrings(a: string, b: string): string {
+  return fromMinorUnits(toMinorUnits(a) - toMinorUnits(b));
+}

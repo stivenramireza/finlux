@@ -252,25 +252,105 @@ describe('MCP transaction tools', () => {
     expect(result).toEqual({ id: tx.id, deleted: true });
   });
 
-  it('summarize groups by currency, never summing across currencies, with string precision', async () => {
+  it('summarize reports per-currency income/expense/net/count, never combining currencies', async () => {
     client.list.mockResolvedValue([
-      makeTx({ amount: '10.5000', currency: TransactionCurrency.COP }),
-      makeTx({ amount: '0.1000', currency: TransactionCurrency.COP }),
-      makeTx({ amount: '2.2500', currency: TransactionCurrency.USD }),
+      // COP: income 10.5 + 0.1 = 10.6 ; expense 2.0 ; net 8.6
+      makeTx({
+        amount: '10.5000',
+        type: TransactionType.INCOME,
+        currency: TransactionCurrency.COP,
+      }),
+      makeTx({
+        amount: '0.1000',
+        type: TransactionType.INCOME,
+        currency: TransactionCurrency.COP,
+      }),
+      makeTx({
+        amount: '2.0000',
+        type: TransactionType.EXPENSE,
+        currency: TransactionCurrency.COP,
+      }),
+      // USD: income 2.25 ; expense 5.0 ; net -2.75 (negative balance)
+      makeTx({
+        amount: '2.2500',
+        type: TransactionType.INCOME,
+        currency: TransactionCurrency.USD,
+      }),
+      makeTx({
+        amount: '5.0000',
+        type: TransactionType.EXPENSE,
+        currency: TransactionCurrency.USD,
+      }),
     ]);
     const result = (await tools['summarize-transactions'].execute!(
       {},
       fakeContext(),
     )) as {
-      byCurrency: Array<{ currency: string; total: string; count: number }>;
+      byCurrency: Array<{
+        currency: string;
+        income: string;
+        expense: string;
+        net: string;
+        count: number;
+      }>;
     };
 
     const cop = result.byCurrency.find((g) => g.currency === 'COP');
     const usd = result.byCurrency.find((g) => g.currency === 'USD');
-    expect(cop).toEqual({ currency: 'COP', total: '10.6000', count: 2 });
-    expect(usd).toEqual({ currency: 'USD', total: '2.2500', count: 1 });
-    // No combined cross-currency total exists.
+    // Exact decimal strings; net = income − expense.
+    expect(cop).toEqual({
+      currency: 'COP',
+      income: '10.6000',
+      expense: '2.0000',
+      net: '8.6000',
+      count: 3,
+    });
+    // Negative-net case, and precision preserved for USD.
+    expect(usd).toEqual({
+      currency: 'USD',
+      income: '2.2500',
+      expense: '5.0000',
+      net: '-2.7500',
+      count: 2,
+    });
+    // COP and USD stay separate groups; no combined cross-currency total.
     expect(result.byCurrency).toHaveLength(2);
+    // Layer 1: neither the token nor the userId appears in the tool result.
+    expect(JSON.stringify(result)).not.toContain(TOKEN);
+    expect(JSON.stringify(result)).not.toContain(USER_ID);
+  });
+
+  it('summarize forwards only the date range + token (no type filter), token as Bearer via the client', async () => {
+    client.list.mockResolvedValue([]);
+    await tools['summarize-transactions'].execute!(
+      { dateFrom: '2025-02-01', dateTo: '2025-02-28' },
+      fakeContext(),
+    );
+    expect(client.list).toHaveBeenCalledWith(
+      { dateFrom: '2025-02-01', dateTo: '2025-02-28' },
+      TOKEN,
+    );
+  });
+
+  it('summarize keeps float-style precision exact (0.1 + 0.2 income)', async () => {
+    client.list.mockResolvedValue([
+      makeTx({
+        amount: '0.1000',
+        type: TransactionType.INCOME,
+        currency: TransactionCurrency.COP,
+      }),
+      makeTx({
+        amount: '0.2000',
+        type: TransactionType.INCOME,
+        currency: TransactionCurrency.COP,
+      }),
+    ]);
+    const result = (await tools['summarize-transactions'].execute!(
+      {},
+      fakeContext(),
+    )) as { byCurrency: Array<{ income: string; net: string }> };
+    expect(result.byCurrency[0].income).toBe('0.3000');
+    expect(result.byCurrency[0].net).toBe('0.3000');
   });
 
   it('the runtime blocks a tool call (no API call) when the token is missing from context (Layer 1)', async () => {

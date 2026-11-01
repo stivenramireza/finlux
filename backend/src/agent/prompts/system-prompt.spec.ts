@@ -138,6 +138,37 @@ describe('FINLUX_SYSTEM_PROMPT', () => {
     });
   });
 
+  describe('money aggregation — never compute, use summarize-transactions', () => {
+    it('tells the agent never to compute money figures itself', () => {
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(/NEVER compute money figures/i);
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(
+        /do not add, subtract, or otherwise do arithmetic/i,
+      );
+    });
+
+    it('routes totals, sums, and balances through summarize-transactions', () => {
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(
+        /use the summarize-transactions tool/i,
+      );
+    });
+
+    it('maps spend/earn/balance questions to expense/income/net', () => {
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(/how much did I spend.*"expense"/i);
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(
+        /how much did I earn\/receive\/make.*"income"/i,
+      );
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(
+        /balance \/ how much is left \/ net.*"net"/i,
+      );
+    });
+
+    it('describes net as income minus expense (the balance, may be negative)', () => {
+      expect(FINLUX_SYSTEM_PROMPT).toMatch(
+        /income minus expense.*balance.*may be negative/i,
+      );
+    });
+  });
+
   describe('existing guardrails remain intact', () => {
     it('keeps currency constrained to the closed COP | USD set', () => {
       expect(FINLUX_SYSTEM_PROMPT).toMatch(/"COP"\s*(?:or|\|)\s*"USD"/i);
