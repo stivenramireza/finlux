@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import { AuthService } from './auth.service.js';
 import type { CryptoService } from '../crypto/crypto.service.js';
 import type { UsersService } from '../users/users.service.js';
 import type { HashingService } from './hashing/hashing.service.js';
 import type { SessionService } from '../session/session.service.js';
+import type { PasswordHistoryService } from '../password-history/password-history.service.js';
+import type { DataSource } from 'typeorm';
 import type { User } from '../users/entities/user.entity.js';
 
 function makeUser(overrides: Partial<User> = {}): User {
@@ -35,6 +38,27 @@ function makeCrypto(): CryptoService {
   } as unknown as CryptoService;
 }
 
+/**
+ * A DataSource test double whose `transaction(cb)` runs the callback with a
+ * fake EntityManager. `register` creates the user and seeds history inside this
+ * transaction; the double lets the mocked `usersService.create` /
+ * `passwordHistory.record` run and surfaces any error (so the 23505→409
+ * rollback path is exercised).
+ */
+function makeDataSource(): DataSource {
+  const manager = {} as unknown;
+  return {
+    transaction: (cb: (m: unknown) => Promise<unknown>) => cb(manager),
+  } as unknown as DataSource;
+}
+
+/** A unique-violation error mimicking what TypeORM surfaces for SQLSTATE 23505. */
+function uniqueViolation(): QueryFailedError {
+  const error = new QueryFailedError('insert', [], new Error('duplicate'));
+  (error as QueryFailedError & { code?: string }).code = '23505';
+  return error;
+}
+
 describe('AuthService.register', () => {
   let usersService: {
     findByEmail: ReturnType<typeof vi.fn>;
@@ -50,6 +74,7 @@ describe('AuthService.register', () => {
     signAsync: ReturnType<typeof vi.fn>;
     decode: ReturnType<typeof vi.fn>;
   };
+  let passwordHistory: { record: ReturnType<typeof vi.fn> };
   let service: AuthService;
 
   beforeEach(() => {
@@ -67,6 +92,7 @@ describe('AuthService.register', () => {
       signAsync: vi.fn(() => Promise.resolve('signed.jwt.token')),
       decode: vi.fn(),
     };
+    passwordHistory = { record: vi.fn(() => Promise.resolve()) };
 
     service = new AuthService(
       usersService as unknown as UsersService,
@@ -74,6 +100,8 @@ describe('AuthService.register', () => {
       jwtService as never,
       sessionService as unknown as SessionService,
       makeCrypto(),
+      makeDataSource(),
+      passwordHistory as unknown as PasswordHistoryService,
     );
   });
 
@@ -95,9 +123,41 @@ describe('AuthService.register', () => {
         email: 'user@example.com',
         password: 'bcrypt-hash',
       }),
+      expect.anything(),
     );
     expect(result).not.toHaveProperty('password');
     expect(result.email).toBe('user@example.com');
+  });
+
+  it('records a first password-history entry on successful registration', async () => {
+    usersService.findByEmail.mockResolvedValue(null);
+    usersService.create.mockResolvedValue(
+      makeUser({ id: 'user-1', password: 'bcrypt-hash' }),
+    );
+
+    await service.register({
+      email: 'user@example.com',
+      password: 'Str0ng!Pass',
+    });
+
+    expect(passwordHistory.record).toHaveBeenCalledOnce();
+    expect(passwordHistory.record).toHaveBeenCalledWith(
+      'user-1',
+      'bcrypt-hash',
+      expect.anything(),
+    );
+  });
+
+  it('maps a 23505 unique violation to a 409 and leaves no orphan history (rollback)', async () => {
+    usersService.findByEmail.mockResolvedValue(null);
+    // The find-then-create race: the pre-check passed but the insert collides.
+    usersService.create.mockRejectedValue(uniqueViolation());
+
+    await expect(
+      service.register({ email: 'user@example.com', password: 'Str0ng!Pass' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    // History is only recorded after a successful create, so none is written.
+    expect(passwordHistory.record).not.toHaveBeenCalled();
   });
 
   it('rejects a duplicate email with a conflict', async () => {
@@ -140,6 +200,7 @@ describe('AuthService.login', () => {
     signAsync: ReturnType<typeof vi.fn>;
     decode: ReturnType<typeof vi.fn>;
   };
+  let passwordHistory: { record: ReturnType<typeof vi.fn> };
   let service: AuthService;
 
   beforeEach(() => {
@@ -157,6 +218,7 @@ describe('AuthService.login', () => {
       signAsync: vi.fn(() => Promise.resolve('signed.jwt.token')),
       decode: vi.fn(),
     };
+    passwordHistory = { record: vi.fn(() => Promise.resolve()) };
 
     service = new AuthService(
       usersService as unknown as UsersService,
@@ -164,6 +226,8 @@ describe('AuthService.login', () => {
       jwtService as never,
       sessionService as unknown as SessionService,
       makeCrypto(),
+      makeDataSource(),
+      passwordHistory as unknown as PasswordHistoryService,
     );
   });
 
@@ -202,8 +266,8 @@ describe('AuthService.login', () => {
     expect(sessionService.record).not.toHaveBeenCalled();
   });
 
-  it('signs a token and records a session with expires_at ~= now + 1h', async () => {
-    const exp = Math.floor(Date.now() / 1000) + 3600;
+  it('signs a token and records a session with expires_at ~= now + 5m', async () => {
+    const exp = Math.floor(Date.now() / 1000) + 300;
     usersService.findByEmailWithPassword.mockResolvedValue(makeUser());
     hashingService.compare.mockResolvedValue(true);
     jwtService.decode.mockReturnValue({ exp });
@@ -221,8 +285,8 @@ describe('AuthService.login', () => {
       .calls[0] as [string, string, Date];
     expect(userId).toBe('user-1');
     expect(rawToken).toBe('signed.jwt.token');
-    const deltaMs = Math.abs(expiresAt.getTime() - (Date.now() + 3600 * 1000));
-    // within ~2s of login + 1h
+    const deltaMs = Math.abs(expiresAt.getTime() - (Date.now() + 300 * 1000));
+    // within ~2s of login + 5m
     expect(deltaMs).toBeLessThan(2000);
   });
 });

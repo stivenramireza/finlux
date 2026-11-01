@@ -13,7 +13,12 @@ import { authErrorToMessage, isValidEmail } from '@/lib/auth/validation';
 import { AuthField } from './auth-field';
 import { AuthSubmitButton } from './auth-submit-button';
 
-export function LoginForm() {
+interface LoginFormProps {
+  /** Opens the "Forgot your password?" request step (Req 6.1). */
+  onForgotPassword: () => void;
+}
+
+export function LoginForm({ onForgotPassword }: LoginFormProps) {
   const { login } = useAuth();
   const statusId = useId();
 
@@ -87,6 +92,17 @@ export function LoginForm() {
         disabled={isSubmitting}
         error={passwordError}
       />
+
+      <div className="-mt-1 flex justify-end">
+        <button
+          type="button"
+          onClick={onForgotPassword}
+          disabled={isSubmitting}
+          className="text-brand focus-visible:ring-brand focus-visible:ring-offset-background rounded-full px-2 py-1 text-sm font-medium underline-offset-4 transition-opacity hover:underline hover:opacity-80 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-60"
+        >
+          Forgot your password?
+        </button>
+      </div>
 
       <p
         id={statusId}

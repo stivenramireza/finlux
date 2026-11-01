@@ -4,11 +4,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { QueryFailedError } from 'typeorm';
+import { DataSource, QueryFailedError } from 'typeorm';
 import { CryptoService } from '../crypto/crypto.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { User } from '../users/entities/user.entity.js';
 import { SessionService } from '../session/session.service.js';
+import { PasswordHistoryService } from '../password-history/password-history.service.js';
 import { HashingService } from './hashing/hashing.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -42,6 +43,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
     private readonly crypto: CryptoService,
+    private readonly dataSource: DataSource,
+    private readonly passwordHistory: PasswordHistoryService,
   ) {}
 
   /**
@@ -65,7 +68,9 @@ export class AuthService {
 
   /**
    * Registers a new user: normalizes the email, rejects duplicates, bcrypt-hashes
-   * the password, persists the user, and returns the public view (no password).
+   * the password, persists the user and seeds the first password-history row in
+   * one transaction, and returns the public view (no password). The reuse check
+   * is a no-op at registration (empty history), so it is not invoked here.
    */
   async register(dto: RegisterDto): Promise<PublicUser> {
     const email = this.normalizeEmail(dto.email);
@@ -78,10 +83,19 @@ export class AuthService {
     const passwordHash = await this.hashingService.hash(dto.password);
 
     try {
-      const user = await this.usersService.create({
-        email,
-        displayName: dto.displayName ?? null,
-        password: passwordHash,
+      // Atomic: the user row and its first password-history entry are created
+      // together. On a unique-violation rollback, no orphan history remains.
+      const user = await this.dataSource.transaction(async (manager) => {
+        const created = await this.usersService.create(
+          {
+            email,
+            displayName: dto.displayName ?? null,
+            password: passwordHash,
+          },
+          manager,
+        );
+        await this.passwordHistory.record(created.id, passwordHash, manager);
+        return created;
       });
       return AuthService.toPublicUser(user);
     } catch (error) {
@@ -117,7 +131,7 @@ export class AuthService {
     }
 
     const payload: JwtPayload = { sub: user.id, email: user.email };
-    // Lifetime is configured on JwtModule (JWT_EXPIRES_IN, default 1h); the
+    // Lifetime is configured on JwtModule (JWT_EXPIRES_IN, default 5m); the
     // issued token's `exp` claim is the source of truth for the audit expiry.
     const accessToken = await this.jwtService.signAsync(payload);
 

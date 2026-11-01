@@ -4,6 +4,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { CryptoModule } from './crypto/crypto.module.js';
 import { DatabaseModule } from './database/database.module.js';
+import { MailModule } from './mail/mail.module.js';
 import { UsersModule } from './users/users.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -14,6 +15,7 @@ import { ChatModule } from './chat/chat.module.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     CryptoModule,
+    MailModule,
     DatabaseModule,
     UsersModule,
     TransactionsModule,

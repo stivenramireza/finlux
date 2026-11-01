@@ -34,6 +34,25 @@ export interface AuthApiClientOptions {
 export type ApiResult<T> =
   { ok: true; data: T } | { ok: false; error: AuthError };
 
+/**
+ * Typed outcome for the password-reset calls (Design: Decision 9). These are
+ * unauthenticated and EXEMPT from the global `401 → logout` handling — there is
+ * no session involved, so a `401` (not expected from these routes) is treated
+ * as a generic failure rather than a session expiry.
+ * - `success`     → the request/confirm completed (200)
+ * - `rejected`    → confirm 400: invalid/expired/used token OR weak password,
+ *                   intentionally indistinguishable (no oracle)
+ * - `validation`  → request 400: malformed email / body
+ * - `network`     → transport failure (offline/DNS/CORS/timeout)
+ * - `unknown`     → anything else (e.g. 5xx)
+ */
+export type PasswordResetOutcome =
+  | { kind: 'success' }
+  | { kind: 'rejected' }
+  | { kind: 'validation' }
+  | { kind: 'network' }
+  | { kind: 'unknown'; status?: number };
+
 export class AuthApiClient {
   private readonly baseUrl: string;
   private readonly getToken: () => string | null;
@@ -117,6 +136,74 @@ export class AuthApiClient {
       return { ok: false, error: { kind: 'validation' } };
     }
     return { ok: false, error: { kind: 'unknown', status: response.status } };
+  }
+
+  /**
+   * `POST /auth/password-reset/request` → always 200 with a uniform,
+   * non-disclosing body (Design: Decision 5/9). UNAUTHENTICATED and EXEMPT from
+   * global 401 handling: it never attaches a token and never calls
+   * `onUnauthorized`. The caller always shows the same confirmation, so the
+   * only non-success outcomes are a `400` (malformed email) or transport/other.
+   * Never logs the email.
+   */
+  async requestPasswordReset(
+    email: string,
+    locale?: string,
+  ): Promise<PasswordResetOutcome> {
+    const body: { email: string; locale?: string } = { email };
+    if (locale && locale.trim().length > 0) {
+      body.locale = locale.trim();
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/auth/password-reset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { kind: 'network' };
+    }
+
+    if (response.status === 200 || response.status === 202) {
+      return { kind: 'success' };
+    }
+    if (response.status === 400) {
+      return { kind: 'validation' };
+    }
+    return { kind: 'unknown', status: response.status };
+  }
+
+  /**
+   * `POST /auth/password-reset/confirm` → 200 success / generic 400 (Design:
+   * Decision 6/9). UNAUTHENTICATED and EXEMPT from global 401 handling (no
+   * session is issued; no auto-login). A `400` means the token is
+   * invalid/expired/used OR the password violates the policy — intentionally
+   * indistinguishable (`rejected`, no oracle). Never logs the token or password.
+   */
+  async confirmPasswordReset(
+    token: string,
+    password: string,
+  ): Promise<PasswordResetOutcome> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/auth/password-reset/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+    } catch {
+      return { kind: 'network' };
+    }
+
+    if (response.status === 200 || response.status === 204) {
+      return { kind: 'success' };
+    }
+    if (response.status === 400) {
+      return { kind: 'rejected' };
+    }
+    return { kind: 'unknown', status: response.status };
   }
 
   /**

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { CryptoService } from '../crypto/crypto.service.js';
 import { User } from './entities/user.entity.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
@@ -27,8 +27,19 @@ export class UsersService {
     return this.crypto.blindIndex(this.crypto.normalizeEmail(email));
   }
 
-  create(dto: CreateUserDto): Promise<User> {
-    const user = this.users.create({
+  /**
+   * Resolves the repository to use: the passed transaction's repository when a
+   * `manager` is supplied (so the operation joins the caller's transaction),
+   * otherwise the injected repository. Additive — omitting `manager` is
+   * unchanged behavior.
+   */
+  private repo(manager?: EntityManager): Repository<User> {
+    return manager ? manager.getRepository(User) : this.users;
+  }
+
+  create(dto: CreateUserDto, manager?: EntityManager): Promise<User> {
+    const repo = this.repo(manager);
+    const user = repo.create({
       // Encrypted at rest by the entity transformer.
       email: dto.email,
       // Deterministic index for lookup/uniqueness, computed in the service.
@@ -36,7 +47,7 @@ export class UsersService {
       displayName: dto.displayName ?? null,
       password: dto.password,
     });
-    return this.users.save(user);
+    return repo.save(user);
   }
 
   findById(id: string): Promise<User | null> {
@@ -82,5 +93,20 @@ export class UsersService {
       user.displayName = dto.displayName;
     }
     return this.users.save(user);
+  }
+
+  /**
+   * Replaces the user's bcrypt password hash. Used by the password-reset
+   * confirm flow. Scoped by id; a parameterized `update` (no raw SQL). The new
+   * value is a hash — never plaintext — and is never logged. Accepts an
+   * optional `EntityManager` so the update can join the caller's transaction
+   * (e.g. reset-confirm's atomic password update + history record).
+   */
+  async updatePassword(
+    id: string,
+    passwordHash: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.repo(manager).update({ id }, { password: passwordHash });
   }
 }

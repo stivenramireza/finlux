@@ -6,10 +6,14 @@ import { Transaction } from '../transactions/entities/transaction.entity.js';
 import { Session } from '../session/entities/session.entity.js';
 import { Conversation } from '../chat/conversation.entity.js';
 import { Message } from '../chat/message.entity.js';
+import { PasswordResetToken } from '../auth/password-reset/entities/password-reset-token.entity.js';
+import { PasswordHistory } from '../password-history/entities/password-history.entity.js';
 import { InitialSchema1730000000000 } from './migrations/1730000000000-InitialSchema.js';
 import { AddUserPassword1730000001000 } from './migrations/1730000001000-AddUserPassword.js';
 import { CreateSessionTable1730000002000 } from './migrations/1730000002000-CreateSessionTable.js';
 import { CreateConversationAndMessageTables1730000003000 } from './migrations/1730000003000-CreateConversationAndMessageTables.js';
+import { CreatePasswordResetTokenTable1730000004000 } from './migrations/1730000004000-CreatePasswordResetTokenTable.js';
+import { CreatePasswordHistoryTable1730000005000 } from './migrations/1730000005000-CreatePasswordHistoryTable.js';
 
 /**
  * Wires TypeORM into Nest. Connection config is read from the environment via
@@ -35,12 +39,22 @@ import { CreateConversationAndMessageTables1730000003000 } from './migrations/17
           synchronize: false,
           migrationsRun: false,
           autoLoadEntities: false,
-          entities: [User, Transaction, Session, Conversation, Message],
+          entities: [
+            User,
+            Transaction,
+            Session,
+            Conversation,
+            Message,
+            PasswordResetToken,
+            PasswordHistory,
+          ],
           migrations: [
             InitialSchema1730000000000,
             AddUserPassword1730000001000,
             CreateSessionTable1730000002000,
             CreateConversationAndMessageTables1730000003000,
+            CreatePasswordResetTokenTable1730000004000,
+            CreatePasswordHistoryTable1730000005000,
           ],
           migrationsTableName: 'migrations',
         };
