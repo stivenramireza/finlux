@@ -241,6 +241,11 @@ by versioned TypeORM migrations.
   (`ENCRYPTION_KEY`, `BIDX_KEY`), validated fail-fast at startup.
 - **Credentials** stored only as bcrypt hashes; tokens/keys/plaintext PII are
   never logged.
+- **Authentication** uses a stateless, access-only JWT (no refresh). Its
+  lifetime is configurable via `JWT_EXPIRES_IN` — **5 minutes in production**
+  (short-lived by design for a finance app), defaulting to 1h in local dev.
+  Logout is client-side (the token is discarded); a `sessions` row stores only a
+  SHA-256 hash of the issued token for audit.
 - **Validation** via a global `ValidationPipe` (`whitelist` +
   `forbidNonWhitelisted`); parameterized access via TypeORM (no raw SQL on user
   input).
@@ -297,7 +302,7 @@ Open http://localhost:3000, register, and start chatting with the agent.
 | `PORT` | API port (default 8000) |
 | `CORS_ORIGIN` | comma-separated allowlist of frontend origins |
 | `DATABASE_URL` | PostgreSQL connection string |
-| `JWT_SECRET`, `JWT_EXPIRES_IN` | JWT signing secret and lifetime (1h) |
+| `JWT_SECRET`, `JWT_EXPIRES_IN` | JWT signing secret and lifetime (default 1h; **5m in production**) |
 | `BCRYPT_SALT_ROUNDS` | bcrypt cost factor |
 | `ENCRYPTION_KEY` | 32-byte base64 AES-256-GCM key (at-rest encryption) |
 | `BIDX_KEY` | 32-byte base64 HMAC key (email blind index) |
