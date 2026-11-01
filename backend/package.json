@@ -30,7 +30,10 @@
     "migration:generate": "pnpm run build && typeorm migration:generate -d dist/database/data-source.js",
     "migration:run": "pnpm run build && typeorm migration:run -d dist/database/data-source.js",
     "migration:revert": "pnpm run build && typeorm migration:revert -d dist/database/data-source.js",
-    "migration:show": "pnpm run build && typeorm migration:show -d dist/database/data-source.js"
+    "migration:show": "pnpm run build && typeorm migration:show -d dist/database/data-source.js",
+    "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js",
+    "migration:revert:prod": "typeorm migration:revert -d dist/database/data-source.js",
+    "migration:show:prod": "typeorm migration:show -d dist/database/data-source.js"
   },
   "dependencies": {
     "@ai-sdk/google": "4.0.105",
