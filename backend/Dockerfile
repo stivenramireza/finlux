@@ -27,8 +27,9 @@ WORKDIR /app
 # changes but dependencies do not. The pnpm store is a cache mount, so the
 # downloaded packages are shared across builds and never committed to a layer.
 FROM base AS deps
+ARG RAILWAY_SERVICE_ID
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+RUN --mount=type=cache,id=${RAILWAY_SERVICE_ID}/pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 # --- Build -------------------------------------------------------------------
@@ -43,8 +44,9 @@ RUN pnpm run build
 # is allowlisted for build in pnpm-workspace.yaml, so its native addon compiles
 # here against the same Node version used at runtime.
 FROM base AS prod-deps
+ARG RAILWAY_SERVICE_ID
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+RUN --mount=type=cache,id=${RAILWAY_SERVICE_ID}/pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --prod
 
 # --- Runtime -----------------------------------------------------------------

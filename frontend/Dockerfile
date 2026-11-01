@@ -28,12 +28,14 @@ WORKDIR /app
 # Copy only the manifests first so installs are cached while source changes.
 # The pnpm store lives in a cache mount, shared across builds.
 FROM base AS deps
+ARG RAILWAY_SERVICE_ID
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+RUN --mount=type=cache,id=${RAILWAY_SERVICE_ID}/pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 # --- Build -------------------------------------------------------------------
 FROM base AS build
+ARG RAILWAY_SERVICE_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -44,7 +46,7 @@ ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 
 ENV NEXT_TELEMETRY_DISABLED=1
 # Cache mount on the Next.js build cache for fast incremental rebuilds.
-RUN --mount=type=cache,id=next-cache,target=/app/.next/cache \
+RUN --mount=type=cache,id=${RAILWAY_SERVICE_ID}/next-cache,target=/app/.next/cache \
     pnpm run build
 
 # --- Runtime -----------------------------------------------------------------
