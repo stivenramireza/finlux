@@ -9,9 +9,6 @@
 #   build   compiles TypeScript -> dist/
 #   prod-deps  production-only node_modules, cached by lockfile
 #   runner  minimal runtime: dist/ + prod node_modules, runs as non-root
-#
-# A BuildKit cache mount on the pnpm store makes repeat builds fast without
-# baking the store into any layer. Requires BuildKit (default in modern Docker).
 # =============================================================================
 
 # --- Pinned toolchain (see .kiro/steering/tech.md) ---------------------------
@@ -24,13 +21,10 @@ WORKDIR /app
 
 # --- Full dependencies (build) -----------------------------------------------
 # Copy only the manifests first so this layer is reused whenever source code
-# changes but dependencies do not. The pnpm store is a cache mount, so the
-# downloaded packages are shared across builds and never committed to a layer.
+# changes but dependencies do not.
 FROM base AS deps
-ARG RAILWAY_SERVICE_ID
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=${RAILWAY_SERVICE_ID}/pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # --- Build -------------------------------------------------------------------
 FROM base AS build
@@ -44,10 +38,8 @@ RUN pnpm run build
 # is allowlisted for build in pnpm-workspace.yaml, so its native addon compiles
 # here against the same Node version used at runtime.
 FROM base AS prod-deps
-ARG RAILWAY_SERVICE_ID
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=${RAILWAY_SERVICE_ID}/pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile --prod
 
 # --- Runtime -----------------------------------------------------------------
 FROM node:24.22.1-bookworm-slim AS runner
