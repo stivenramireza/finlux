@@ -163,56 +163,74 @@ describe('PII encryption at rest (e2e)', () => {
 
   it('register → login happy path through the blind index', async () => {
     const email = `pii-happy-${Date.now()}@example.com`;
+    // Registration is non-disclosing: it returns a generic body (no id/email/
+    // displayName/password). The decrypted fields are observed via login.
     const reg = await request(base)
       .post('/auth/register')
       .send({ email, password: 'S3cur3P@ss', displayName: 'Jane Doe' })
       .expect(201);
-    const regBody = asBody<{ id: string; email: string; displayName: string }>(
-      reg,
-    );
-    createdUserIds.push(regBody.id);
-    // The API returns plaintext (decrypted transparently).
-    expect(regBody.email).toBe(email);
-    expect(regBody.displayName).toBe('Jane Doe');
+    const regBody = asBody<Record<string, unknown>>(reg);
+    expect(regBody).not.toHaveProperty('id');
     expect(regBody).not.toHaveProperty('password');
+    expect(regBody).not.toHaveProperty('email');
 
     const login = await request(base)
       .post('/auth/login')
       .send({ email, password: 'S3cur3P@ss' })
       .expect(200);
-    const loginBody = asBody<{ accessToken: string; user: { email: string } }>(
-      login,
-    );
+    const loginBody = asBody<{
+      accessToken: string;
+      user: { id: string; email: string; displayName: string };
+    }>(login);
+    createdUserIds.push(loginBody.user.id);
     expect(typeof loginBody.accessToken).toBe('string');
     expect(loginBody.user.email).toBe(email);
+    // The API returns plaintext (decrypted transparently).
+    expect(loginBody.user.displayName).toBe('Jane Doe');
   });
 
-  it('case-insensitive duplicate email → 409 via uq_users_email_bidx', async () => {
+  it('case-insensitive existing email is non-disclosing (201, no 409) and creates no second user', async () => {
     const stamp = Date.now();
-    const first = await request(base)
+    await request(base)
       .post('/auth/register')
       .send({ email: `User-${stamp}@Example.com`, password: 'S3cur3P@ss' })
       .expect(201);
-    createdUserIds.push(asBody<{ id: string }>(first).id);
 
+    // Re-registering the same email in a different case must NOT disclose that
+    // it exists: identical generic 201, not a 409. The DB-level
+    // `uq_users_email_bidx` constraint still prevents a duplicate row — its
+    // violation is swallowed silently.
     await request(base)
       .post('/auth/register')
       .send({ email: `user-${stamp}@example.com`, password: 'S3cur3P@ss' })
-      .expect(409);
+      .expect(201);
+
+    // Exactly one user row exists for that normalized email (no second user
+    // created despite the second request succeeding).
+    const bidx = expectedBidx(`user-${stamp}@example.com`);
+    const rows = await dataSource.query<Array<{ id: string }>>(
+      'SELECT id FROM "users" WHERE email_bidx = $1',
+      [bidx],
+    );
+    expect(rows).toHaveLength(1);
+    createdUserIds.push(rows[0].id);
   });
 
   it('captured transaction description round-trips as plaintext via the API', async () => {
     const email = `pii-tx-${Date.now()}@example.com`;
-    const reg = await request(base)
+    await request(base)
       .post('/auth/register')
       .send({ email, password: 'S3cur3P@ss' })
       .expect(201);
-    createdUserIds.push(asBody<{ id: string }>(reg).id);
     const login = await request(base)
       .post('/auth/login')
       .send({ email, password: 'S3cur3P@ss' })
       .expect(200);
-    const token = asBody<{ accessToken: string }>(login).accessToken;
+    const loginBody = asBody<{ accessToken: string; user: { id: string } }>(
+      login,
+    );
+    createdUserIds.push(loginBody.user.id);
+    const token = loginBody.accessToken;
     const auth = { Authorization: `Bearer ${token}` };
 
     await request(base)
@@ -234,16 +252,19 @@ describe('PII encryption at rest (e2e)', () => {
 
   it('chat message content round-trips as plaintext via the API', async () => {
     const email = `pii-chat-${Date.now()}@example.com`;
-    const reg = await request(base)
+    await request(base)
       .post('/auth/register')
       .send({ email, password: 'S3cur3P@ss' })
       .expect(201);
-    createdUserIds.push(asBody<{ id: string }>(reg).id);
     const login = await request(base)
       .post('/auth/login')
       .send({ email, password: 'S3cur3P@ss' })
       .expect(200);
-    const token = asBody<{ accessToken: string }>(login).accessToken;
+    const loginBody = asBody<{ accessToken: string; user: { id: string } }>(
+      login,
+    );
+    createdUserIds.push(loginBody.user.id);
+    const token = loginBody.accessToken;
     const auth = { Authorization: `Bearer ${token}` };
 
     const started = await request(base)
@@ -265,17 +286,20 @@ describe('PII encryption at rest (e2e)', () => {
   it('AT REST: raw SELECT shows ciphertext envelopes, not plaintext', async () => {
     const email = `pii-rest-${Date.now()}@example.com`;
     const displayName = 'Alice Atrest';
-    const reg = await request(base)
+    await request(base)
       .post('/auth/register')
       .send({ email, password: 'S3cur3P@ss', displayName })
       .expect(201);
-    const userId = asBody<{ id: string }>(reg).id;
-    createdUserIds.push(userId);
     const login = await request(base)
       .post('/auth/login')
       .send({ email, password: 'S3cur3P@ss' })
       .expect(200);
-    const token = asBody<{ accessToken: string }>(login).accessToken;
+    const loginBody = asBody<{ accessToken: string; user: { id: string } }>(
+      login,
+    );
+    const userId = loginBody.user.id;
+    createdUserIds.push(userId);
+    const token = loginBody.accessToken;
     const auth = { Authorization: `Bearer ${token}` };
 
     // A transaction (description) + a chat turn (content).

@@ -24,8 +24,13 @@ drop-in fallback.
 > encrypted; registration/login resolve the user through a deterministic
 > `email_bidx` blind index (keyed HMAC over the normalized email) instead of the
 > plaintext `email` column, and uniqueness is enforced on `email_bidx`. The
-> generic-401/409 behavior described here is unchanged. See
-> `.kiro/specs/pii-encryption-at-rest/` for the authoritative design.
+> login generic-401 behavior is unchanged. **Note:** registration no longer
+> returns a `409` — it is now **non-disclosing** (identical generic response for
+> new vs already-registered, timing-equivalent), per Requirement 1 / Decision 1.
+> The DB-level `uq_users_email_bidx` unique constraint stays (data integrity);
+> what changes is that its violation is handled silently, not surfaced as a
+> `409`. See `.kiro/specs/pii-encryption-at-rest/` for the authoritative
+> encryption design.
 
 ### `users` table — new column `password`
 - `password` (`varchar`, NOT NULL): stores the **bcrypt hash** (the column name
@@ -48,10 +53,18 @@ in and when the session expires. The auth guard does **not** read it; token
 validity is determined statelessly by JWT signature + expiry.
 
 ## Password hashing
-- `HashingService` wraps bcrypt: `hash(plain)` and `compare(plain, hash)`.
+- `HashingService` wraps bcrypt: `hash(plain)`, `compare(plain, hash)`, and
+  `compareWithDummy(plain)`.
 - Cost factor from `BCRYPT_SALT_ROUNDS` (default 12). bcrypt embeds a per-hash
   salt, so identical passwords yield different hashes.
-- Credentials are never logged.
+- `compareWithDummy(plain)` performs a genuine `bcrypt.compare` of `plain`
+  against a dummy hash generated **once** at the configured `saltRounds` (cached,
+  so no per-call `bcrypt.hash`), always resolving `false`. It exists so a
+  failure path with **no matching user** (login) or an **already-registered
+  email** (register) can spend the same bcrypt time as the real path, closing an
+  account-enumeration **timing** oracle. The dummy's cost tracks
+  `BCRYPT_SALT_ROUNDS` even when overridden, so the timing stays symmetric.
+- Credentials and the dummy value are never logged.
 
 ## Token / session
 - Access-only JWT (no refresh), signed with `JWT_SECRET`, lifetime
@@ -63,13 +76,30 @@ validity is determined statelessly by JWT signature + expiry.
   the audit-only `sessions` table.
 
 ## Flows
-- `POST /auth/register`: validate input + password policy; normalize email
-  (trim + lowercase); reject if the email already exists (Req 1.2); bcrypt-hash
-  the password; create the `user`; respond without exposing `password`.
-- `POST /auth/login`: load the user by email selecting `password`;
-  `bcrypt.compare`; on failure (unknown email OR wrong password) return an
-  **identical generic 401** (Req 3.2); on success sign a JWT, insert a `session`
-  audit row, and return the token.
+- `POST /auth/register` (**non-disclosing**, Req 1 / Decision 1): validate input
+  + password policy (generic validation error on malformed input, applied
+  identically regardless of email existence); normalize email (trim +
+  lowercase); compute `email_bidx`; **always** bcrypt-hash the submitted
+  password (so the timing is the same whether or not the email exists).
+  - If the email is **new**: create the `user` in the usual transaction (user +
+    first password-history row).
+  - If the email is **already registered** (detected via the pre-check and/or
+    the `uq_users_email_bidx` unique-violation on insert): do **not** create or
+    modify anything, and do **not** surface a `409`. Swallow the unique-violation
+    and fall through to the same generic response. To keep timing symmetric, the
+    already-registered path still performs the equivalent bcrypt work (the hash
+    above, and/or `compareWithDummy`) — it must not short-circuit before the
+    bcrypt cost is paid.
+  - Respond with an **identical, generic success-style response** in both cases
+    (e.g. `201`/`200` with a neutral body), never exposing the created record,
+    its id, `password`, or any field that differs between the two cases. The
+    controller SHALL NOT auto-login or otherwise branch on which case occurred.
+- `POST /auth/login`: load the user by `email_bidx` selecting `password`. On
+  **unknown email**, call `compareWithDummy(password)` (constant-cost bcrypt)
+  then throw the generic `401`; on **found user**, `bcrypt.compare`; on mismatch
+  throw the **identical generic 401** (Req 3.2). On success sign a JWT, insert a
+  `session` audit row, and return the token. Both failure branches pay the same
+  bcrypt cost (no timing oracle).
 - Logout: client-side; no server state change required (Req 3.3 is satisfied by
   natural expiry + client token disposal).
 
@@ -118,10 +148,15 @@ backend/src/database/migrations/
 
 ## Verification
 - `pnpm --dir backend build`, `lint`, `format:check` pass.
-- Vitest: hashing (hash ≠ plain, compare ok/ko); password policy (accepts a
-  valid password, rejects missing uppercase / digit / special / < 8); register
-  (rejects duplicate email; response has no `password`); login (generic 401 on
-  bad credentials; inserts a `session` row with `expires_at ≈ login + 1h`);
-  guard rejects requests without a valid token.
+- Vitest: hashing (hash ≠ plain, compare ok/ko; `compareWithDummy` returns
+  `false`, reuses the cached dummy, cost tracks `BCRYPT_SALT_ROUNDS`); password
+  policy (accepts a valid password, rejects missing uppercase / digit / special
+  / < 8); **register non-disclosure** (an already-registered email yields a
+  response byte-identical to a newly-created one; no `409`; no `password`/id in
+  the body; nothing created on the already-registered path; the bcrypt-cost work
+  runs on the already-registered path so timing is symmetric); login (generic
+  401 on bad credentials, with a bcrypt compare exercised on the unknown-email
+  branch; inserts a `session` row with `expires_at ≈ login + 1h`); guard rejects
+  requests without a valid token.
 - Migrations apply against the dev DB; `user` has `password`, `session` exists
   with `token`/`expires_at`; `migration:revert` rolls back cleanly.

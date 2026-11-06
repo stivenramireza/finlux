@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource, QueryFailedError } from 'typeorm';
 import { CryptoService } from '../crypto/crypto.service.js';
@@ -67,25 +63,45 @@ export class AuthService {
   }
 
   /**
-   * Registers a new user: normalizes the email, rejects duplicates, bcrypt-hashes
-   * the password, persists the user and seeds the first password-history row in
-   * one transaction, and returns the public view (no password). The reuse check
-   * is a no-op at registration (empty history), so it is not invoked here.
+   * Registers a new user — **non-disclosing** (Requirement 1 / Decision 1). The
+   * response is identical whether the email is new or already registered, with
+   * no timing side-channel, so the endpoint is not an account-existence oracle.
+   *
+   * Flow:
+   * - Normalize the email and **always** bcrypt-hash the submitted password, so
+   *   the work (and timing) is the same regardless of whether the email exists.
+   * - If the email is new → create the user and seed the first password-history
+   *   row in one transaction.
+   * - If the email already exists (pre-check OR the `uq_users_email_bidx`
+   *   unique-violation on insert) → create/modify nothing and swallow the
+   *   violation; still pay the equivalent bcrypt cost (via `compareWithDummy`)
+   *   so the timing matches the created-new path.
+   *
+   * Returns nothing: the caller/controller emits an identical generic response
+   * in both cases, never exposing the created record, its id, or `password`.
    */
-  async register(dto: RegisterDto): Promise<PublicUser> {
+  async register(dto: RegisterDto): Promise<void> {
     const email = this.normalizeEmail(dto.email);
+
+    // Hash unconditionally so the created-new and already-registered paths do
+    // the same bcrypt work (no timing oracle), before any branching on
+    // existence. The password policy is enforced by the DTO/ValidationPipe,
+    // identically regardless of email existence.
+    const passwordHash = await this.hashingService.hash(dto.password);
 
     const existing = await this.usersService.findByEmail(email);
     if (existing) {
-      throw new ConflictException('Email is already registered');
+      // Already registered: persist nothing and do not disclose it. Pay an
+      // equivalent constant-cost bcrypt compare so the response time matches
+      // the create path, then fall through to the generic response.
+      await this.hashingService.compareWithDummy(dto.password);
+      return;
     }
-
-    const passwordHash = await this.hashingService.hash(dto.password);
 
     try {
       // Atomic: the user row and its first password-history entry are created
       // together. On a unique-violation rollback, no orphan history remains.
-      const user = await this.dataSource.transaction(async (manager) => {
+      await this.dataSource.transaction(async (manager) => {
         const created = await this.usersService.create(
           {
             email,
@@ -95,15 +111,14 @@ export class AuthService {
           manager,
         );
         await this.passwordHistory.record(created.id, passwordHash, manager);
-        return created;
       });
-      return AuthService.toPublicUser(user);
     } catch (error) {
-      // Defense against the find-then-create race: the unique constraint on
-      // `email_bidx` is the authoritative guard. Map its violation to the same
-      // 409 as the pre-check (no disclosure of other details).
+      // Find-then-create race: the `uq_users_email_bidx` unique constraint is
+      // the authoritative guard (it stays for data integrity). Swallow its
+      // violation and respond identically to the created-new case — no `409`,
+      // no disclosure that the email already exists. Any other error surfaces.
       if (AuthService.isUniqueViolation(error)) {
-        throw new ConflictException('Email is already registered');
+        return;
       }
       throw error;
     }
@@ -112,13 +127,20 @@ export class AuthService {
   /**
    * Verifies credentials and, on success, signs a 1h JWT and records a session
    * audit row. Any failure (unknown email OR wrong password) yields an identical
-   * generic 401 so no field is disclosed (Requirement 3.2).
+   * generic 401 so no field is disclosed (Requirement 3.2). Both branches run
+   * an equivalent constant-cost bcrypt compare before returning — on an unknown
+   * email against a dummy hash generated at the configured cost — so the
+   * response timing does not reveal whether the email is registered (no
+   * account-enumeration oracle).
    */
   async login(dto: LoginDto): Promise<LoginResult> {
     const email = this.normalizeEmail(dto.email);
 
     const user = await this.usersService.findByEmailWithPassword(email);
     if (!user) {
+      // Spend the same bcrypt time as the found path so timing is symmetric,
+      // then fail with the identical generic 401.
+      await this.hashingService.compareWithDummy(dto.password);
       throw new UnauthorizedException('Invalid credentials');
     }
 

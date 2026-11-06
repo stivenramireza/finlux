@@ -36,6 +36,14 @@ describe('HashingService', () => {
     await expect(service.compare('wrong-password', hash)).resolves.toBe(false);
   });
 
+  it('compareWithDummy always returns false and caches the dummy hash', async () => {
+    await expect(service.compareWithDummy('anything')).resolves.toBe(false);
+    // A second call reuses the cached dummy hash and still resolves false.
+    await expect(service.compareWithDummy('something-else')).resolves.toBe(
+      false,
+    );
+  });
+
   it('falls back to the default cost when the config value is invalid', async () => {
     const svc = makeService('not-a-number');
     const hash = await svc.hash('Str0ng!Pass');

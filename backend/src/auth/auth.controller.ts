@@ -6,11 +6,7 @@ import {
   HttpStatus,
   Post,
 } from '@nestjs/common';
-import {
-  AuthService,
-  type LoginResult,
-  type PublicUser,
-} from './auth.service.js';
+import { AuthService, type LoginResult } from './auth.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { PasswordResetService } from './password-reset/password-reset.service.js';
@@ -22,6 +18,14 @@ import type { MailLocale } from '../mail/mailer.port.js';
 const RESET_REQUEST_MESSAGE =
   "If an account exists for that email, we've sent reset instructions.";
 
+/**
+ * Uniform, non-disclosing response for registration (Requirement 1 /
+ * Decision 1). Identical whether the email is new or already registered, so the
+ * endpoint cannot be used to enumerate accounts.
+ */
+const REGISTER_MESSAGE =
+  'If this email is new, your account has been created — you can now log in.';
+
 /** Authentication endpoints: registration, login, and password reset. */
 @Controller('auth')
 export class AuthController {
@@ -30,10 +34,17 @@ export class AuthController {
     private readonly passwordResetService: PasswordResetService,
   ) {}
 
+  /**
+   * Registers a user — **non-disclosing** (Requirement 1 / Decision 1). Returns
+   * the SAME generic body whether or not the email was already registered, and
+   * never exposes the created record, its id, or `password`. Does not auto-login
+   * or branch on which case occurred.
+   */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  register(@Body() dto: RegisterDto): Promise<PublicUser> {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto): Promise<{ message: string }> {
+    await this.authService.register(dto);
+    return { message: REGISTER_MESSAGE };
   }
 
   @Post('login')

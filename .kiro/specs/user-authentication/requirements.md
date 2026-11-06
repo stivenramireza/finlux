@@ -23,16 +23,43 @@ Out of scope:
 
 ## Requirements
 
-### Requirement 1 — Registration
+### Requirement 1 — Registration (non-disclosing)
 **User story:** As a new user, I want to create an account so that I can use
-Finlux privately.
+Finlux privately, without the registration endpoint revealing whether an email
+is already registered.
+
+Account-enumeration context: a registration endpoint that answers differently
+for an already-registered email than for a new one is an account-existence
+oracle. This spec closes that oracle by making registration **non-disclosing**,
+consistent with the generic-error posture of login (Requirement 3.2) and the
+password-reset request step. The chosen mitigation is a **generic response**
+(not rate limiting).
 
 Acceptance criteria (EARS):
-1. WHEN a user registers with valid credentials, THE SYSTEM SHALL create a user
-   record and confirm success.
-2. IF the identifier (e.g. email) is already registered, THEN THE SYSTEM SHALL
-   reject the registration with a clear error.
-3. THE SYSTEM SHALL validate and sanitize all registration input.
+1. WHEN a user registers with valid credentials for an email that is not already
+   registered, THE SYSTEM SHALL create the user record.
+2. WHEN a user registers with valid input for an email that **is** already
+   registered, THE SYSTEM SHALL NOT create or modify any record, and SHALL NOT
+   reveal that the email already exists.
+3. THE SYSTEM SHALL return an **identical, generic success-style response** for
+   both the created-new and already-registered cases (Acceptance 1 and 2), so
+   that an external caller cannot distinguish them from the response. The
+   response SHALL NOT include the generated user record, its id, or any field
+   that differs between the two cases (a 409/"email already registered" error
+   SHALL NOT be returned).
+4. THE SYSTEM SHALL NOT introduce an observable timing (or other side-channel)
+   difference between the created-new and already-registered cases; in
+   particular, the already-registered path SHALL perform work equivalent to the
+   created-new path (e.g. an equivalent constant-cost password hash) so response
+   timing does not disclose account existence. (Mirrors the login timing
+   mitigation.)
+5. THE SYSTEM SHALL validate and sanitize all registration input; malformed
+   input (bad email, weak password) SHALL be rejected with a generic validation
+   error. This validation is independent of account existence and SHALL be
+   applied identically whether or not the email is already registered, so it
+   does not reintroduce an enumeration oracle.
+6. THE SYSTEM SHALL NOT log, echo, or otherwise disclose whether a registration
+   corresponded to a new or an already-registered email.
 
 ### Requirement 2 — Credential security
 Acceptance criteria (EARS):
@@ -66,3 +93,42 @@ Acceptance criteria (EARS):
    environment, referenced by key name, and SHALL NOT commit them.
 2. THE SYSTEM SHALL align with the stack in `.kiro/steering/tech.md`
    (NestJS backend, PostgreSQL) and the security baseline.
+
+## Decisions / security findings (PM-owned)
+
+### Decision 1 — Registration is non-disclosing via a generic response (not rate limiting)
+**Status:** decided (supersedes the prior "reject with a clear error" wording of
+Requirement 1).
+
+**Finding.** The earlier contract rejected a duplicate email with an explicit
+`409 "Email is already registered"` — an account-existence oracle inconsistent
+with the rest of auth (login's generic `401`, Req 3.2; and the password-reset
+request step's identical response for existing/non-existing emails). A sibling
+**login** timing side-channel (bcrypt skipped on unknown emails) was fixed
+separately as an in-scope bugfix; this decision closes the **registration**
+oracle.
+
+**Decision.** Close the oracle by making registration **non-disclosing**: an
+identical generic success-style response for both the newly-created and the
+already-registered cases, with no timing/side-channel difference (Requirement 1,
+rewritten above). The chosen mechanism is the **generic response**, explicitly
+**not** rate limiting / throttling. Rate limiting may still be adopted later as
+defense-in-depth, but it is **not** the mechanism relied on to satisfy
+Requirement 1 and is out of scope for this decision.
+
+**Accepted UX tradeoff.** Because the endpoint no longer returns an inline
+"that email is already in use" error, the signup form cannot tell the user to
+log in instead, and registration cannot auto-log-in the newly created user
+based on a distinguishable success (the response must be identical in both
+cases). Front-end copy SHALL present a neutral confirmation (e.g. "If this is a
+new email, your account has been created — you can now log in"). Any
+email-verification or welcome-email flow that would differ per case is a
+separate future decision and must preserve this non-disclosure contract.
+
+**Reconciliation.** Requirement 1.2's former "reject with a clear error" is
+intentionally removed; the generic non-disclosing response replaces it. Design
+and tasks for `user-authentication` MUST be updated to match (the current
+implementation's `409` on duplicate — both the find-then-create pre-check and
+the `email_bidx` unique-violation mapping in `backend/src/auth/auth.service.ts`
+`register()` — no longer satisfies this requirement and must be changed, keeping
+the timing-equivalent work on the already-registered path).

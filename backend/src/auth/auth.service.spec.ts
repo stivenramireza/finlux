@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { AuthService } from './auth.service.js';
 import type { CryptoService } from '../crypto/crypto.service.js';
@@ -68,6 +68,7 @@ describe('AuthService.register', () => {
   let hashingService: {
     hash: ReturnType<typeof vi.fn>;
     compare: ReturnType<typeof vi.fn>;
+    compareWithDummy?: ReturnType<typeof vi.fn>;
   };
   let sessionService: { record: ReturnType<typeof vi.fn> };
   let jwtService: {
@@ -86,6 +87,7 @@ describe('AuthService.register', () => {
     hashingService = {
       hash: vi.fn(() => Promise.resolve('bcrypt-hash')),
       compare: vi.fn(),
+      compareWithDummy: vi.fn(() => Promise.resolve(false)),
     };
     sessionService = { record: vi.fn(() => Promise.resolve({})) };
     jwtService = {
@@ -105,7 +107,7 @@ describe('AuthService.register', () => {
     );
   });
 
-  it('normalizes the email, hashes the password, and omits the hash from the response', async () => {
+  it('normalizes the email and hashes the password when the email is new', async () => {
     usersService.findByEmail.mockResolvedValue(null);
     usersService.create.mockResolvedValue(
       makeUser({ email: 'user@example.com', password: 'bcrypt-hash' }),
@@ -125,8 +127,9 @@ describe('AuthService.register', () => {
       }),
       expect.anything(),
     );
-    expect(result).not.toHaveProperty('password');
-    expect(result.email).toBe('user@example.com');
+    // Non-disclosing: the service returns nothing (no created record / id /
+    // password) so the controller can emit an identical generic response.
+    expect(result).toBeUndefined();
   });
 
   it('records a first password-history entry on successful registration', async () => {
@@ -148,30 +151,47 @@ describe('AuthService.register', () => {
     );
   });
 
-  it('maps a 23505 unique violation to a 409 and leaves no orphan history (rollback)', async () => {
+  it('swallows a 23505 unique violation (find-then-create race) with no 409 and no orphan history', async () => {
     usersService.findByEmail.mockResolvedValue(null);
     // The find-then-create race: the pre-check passed but the insert collides.
     usersService.create.mockRejectedValue(uniqueViolation());
 
+    // Non-disclosing: resolves normally (no ConflictException surfaced).
     await expect(
       service.register({ email: 'user@example.com', password: 'Str0ng!Pass' }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).resolves.toBeUndefined();
     // History is only recorded after a successful create, so none is written.
     expect(passwordHistory.record).not.toHaveBeenCalled();
   });
 
-  it('rejects a duplicate email with a conflict', async () => {
+  it('does not create or modify anything, and does not throw, for an already-registered email', async () => {
     usersService.findByEmail.mockResolvedValue(makeUser());
 
     await expect(
       service.register({ email: 'user@example.com', password: 'Str0ng!Pass' }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).resolves.toBeUndefined();
     expect(usersService.create).not.toHaveBeenCalled();
+    expect(passwordHistory.record).not.toHaveBeenCalled();
   });
 
-  it('rejects a case-insensitive duplicate (normalized lookup) with a conflict', async () => {
+  it('pays the equivalent bcrypt cost on the already-registered path (timing symmetry, no oracle)', async () => {
+    usersService.findByEmail.mockResolvedValue(makeUser());
+
+    await service.register({
+      email: 'user@example.com',
+      password: 'Str0ng!Pass',
+    });
+
+    // The submitted password is hashed on BOTH paths, and the already-registered
+    // path additionally runs a constant-cost dummy compare — so neither the work
+    // nor the timing reveals that the email already exists.
+    expect(hashingService.hash).toHaveBeenCalledWith('Str0ng!Pass');
+    expect(hashingService.compareWithDummy).toHaveBeenCalledWith('Str0ng!Pass');
+  });
+
+  it('treats a case-insensitive existing email as already-registered (normalized lookup), non-disclosing', async () => {
     // The normalized email is what reaches findByEmail; a differently-cased
-    // registration collides with the existing normalized record.
+    // registration resolves to the existing normalized record.
     usersService.findByEmail.mockResolvedValue(makeUser());
 
     await expect(
@@ -179,7 +199,7 @@ describe('AuthService.register', () => {
         email: '  USER@Example.com ',
         password: 'Str0ng!Pass',
       }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).resolves.toBeUndefined();
     expect(usersService.findByEmail).toHaveBeenCalledWith('user@example.com');
     expect(usersService.create).not.toHaveBeenCalled();
   });
@@ -194,6 +214,7 @@ describe('AuthService.login', () => {
   let hashingService: {
     hash: ReturnType<typeof vi.fn>;
     compare: ReturnType<typeof vi.fn>;
+    compareWithDummy?: ReturnType<typeof vi.fn>;
   };
   let sessionService: { record: ReturnType<typeof vi.fn> };
   let jwtService: {
@@ -212,6 +233,7 @@ describe('AuthService.login', () => {
     hashingService = {
       hash: vi.fn(),
       compare: vi.fn(),
+      compareWithDummy: vi.fn(() => Promise.resolve(false)),
     };
     sessionService = { record: vi.fn(() => Promise.resolve({})) };
     jwtService = {
@@ -231,12 +253,16 @@ describe('AuthService.login', () => {
     );
   });
 
-  it('returns a generic 401 for an unknown email (no field disclosure)', async () => {
+  it('runs a constant-cost dummy compare and returns a generic 401 for an unknown email (no field disclosure, no timing oracle)', async () => {
     usersService.findByEmailWithPassword.mockResolvedValue(null);
 
     await expect(
       service.login({ email: 'ghost@example.com', password: 'whatever' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+    // The null branch MUST still perform an equivalent bcrypt compare so its
+    // timing matches the found path; it uses the dummy-hash compare, not the
+    // real-user compare.
+    expect(hashingService.compareWithDummy).toHaveBeenCalledWith('whatever');
     expect(hashingService.compare).not.toHaveBeenCalled();
   });
 
